@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="帰国プランナー">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#D8EDFB">
+<title>一時帰国プランナー</title>
+<script>
+// PWA manifest inline
+const manifest = {
+  name: "一時帰国プランナー",
+  short_name: "帰国プランナー",
+  display: "standalone",
+  background_color: "#F3F8FC",
+  theme_color: "#D8EDFB",
+  icons: []
+};
+const blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
+const ml = document.createElement('link');
+ml.rel = 'manifest';
+ml.href = URL.createObjectURL(blob);
+document.head.appendChild(ml);
+</script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body,#root{height:100%;width:100%;overflow:hidden;}
+  input,textarea,button{font-family:inherit;}
+  input[type=date]::-webkit-calendar-picker-indicator{opacity:0.5;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.383.0/umd/lucide.min.js"></script>
+<script>
+// localStorage wrapper matching window.storage API
+window.storage = {
+  get: async (key) => {
+    try { const v = localStorage.getItem(key); return v ? {key, value:v} : null; } catch(e){ return null; }
+  },
+  set: async (key, value) => {
+    try { localStorage.setItem(key, value); return {key, value}; } catch(e){ return null; }
+  },
+  delete: async (key) => {
+    try { localStorage.removeItem(key); return {key, deleted:true}; } catch(e){ return null; }
+  },
+  list: async (prefix) => {
+    try {
+      const keys = Object.keys(localStorage).filter(k => !prefix || k.startsWith(prefix));
+      return {keys, prefix};
+    } catch(e){ return {keys:[]}; }
+  }
+};
+</script>
+<script>
+// lucide shim: map named imports to window.lucide
+const {ICON_NAMES} = window._appConfig_ = {};
+</script>
+<script type="text/babel" data-presets="react">
+const {ShoppingBag,Gift,Users,MapPin,Utensils,CalendarDays,ClipboardList,Plus,Trash2,CalendarPlus,ChevronDown,ChevronRight,Plane,Check,Download,Archive,ArrowLeft} = lucide;
+
+/* ---------- palette: 搭乗券スカイブルー × 夕焼けコーラル ---------- */
+const C = {
+  bg: '#F3F8FC',
+  card: '#FFFFFF',
+  ink: '#27415A',
+  sub: '#859DB0',
+  line: '#DFEDF6',
+  sky: '#4FA3D9',
+  skySoft: '#E4F2FB',
+  coral: '#F0876C',
+  coralSoft: '#FDEDE6',
+  coralPale: '#F4CDBB',
+  mint: '#54B393',
+  mintSoft: '#E5F5EE',
+  lav: '#9C88CC',
+  lavSoft: '#F0EBF9',
+  done: '#54B393',
+};
+const softOf = (accent) =>
+  accent === C.sky ? C.skySoft : accent === C.coral ? C.coralSoft : accent === C.mint ? C.mintSoft : C.lavSoft;
+
+const DISPLAY = '"Hiragino Mincho ProN","Yu Mincho",YuMincho,"Noto Serif JP",Georgia,serif';
+const BODY = '"Hiragino Kaku Gothic ProN","Yu Gothic","Noto Sans JP",system-ui,sans-serif';
+
+const STORAGE_V2 = 'kikoku_planner_v2';
+const STORAGE_V1 = 'kikoku_planner_v1';
+
+const EMPTY = {
+  trip: { start: '', end: '' },
+  shopping: { before: [], after: [], store: [] },
+  souvenir: { japan: [], india: [] },
+  people: [],
+  places: [],
+  food: [],
+  todo: [],
+};
+const freshEmpty = () => JSON.parse(JSON.stringify(EMPTY));
+
+/* ---------- helpers ---------- */
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const pad = (n) => String(n).padStart(2, '0');
+
+function isoNextDay(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+function daysFromToday(iso) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const t = new Date(iso + 'T00:00:00');
+  return Math.round((t - today) / 86400000);
+}
+function fmtJP(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  const w = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
+  return `${d.getMonth() + 1}月${d.getDate()}日(${w})`;
+}
+function fmtRange(trip) {
+  if (!trip?.start && !trip?.end) return '日付未設定';
+  const y = trip.start ? new Date(trip.start + 'T00:00:00').getFullYear() + '年 ' : '';
+  return `${y}${fmtJP(trip.start)}${trip.end ? ' 〜 ' + fmtJP(trip.end) : ''}`;
+}
+function endTimeOf(date, time) {
+  const [h] = time.split(':').map(Number);
+  let eh = h + 1, endDate = date;
+  if (eh > 23) { eh -= 24; endDate = isoNextDay(date); }
+  return { endDate, eh };
+}
+function gcalDates(date, time) {
+  const d = date.replaceAll('-', '');
+  if (time) {
+    const [h, m] = time.split(':').map(Number);
+    const { endDate, eh } = endTimeOf(date, time);
+    return `${d}T${pad(h)}${pad(m)}00/${endDate.replaceAll('-', '')}T${pad(eh)}${pad(m)}00`;
+  }
+  return `${d}/${isoNextDay(date).replaceAll('-', '')}`;
+}
+function gcalLink(item) {
+  const p = new URLSearchParams();
+  p.set('action', 'TEMPLATE');
+  p.set('text', item.title || '');
+  if (item.date) p.set('dates', gcalDates(item.date, item.time));
+  if (item.note) p.set('details', item.note);
+  if (item.location) p.set('location', item.location);
+  return 'https://calendar.google.com/calendar/render?' + p.toString();
+}
+
+/* ---------- ICS export ---------- */
+function icsEscape(s) {
+  return String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+}
+function buildICS(events) {
+  const now = new Date();
+  const stamp = `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}T${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}00Z`;
+  const L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//kikoku-planner//JP', 'CALSCALE:GREGORIAN'];
+  events.forEach((ev) => {
+    L.push('BEGIN:VEVENT');
+    L.push('UID:' + ev.id + '@kikoku-planner');
+    L.push('DTSTAMP:' + stamp);
+    const d = ev.date.replaceAll('-', '');
+    if (ev.time) {
+      const [h, m] = ev.time.split(':').map(Number);
+      const { endDate, eh } = endTimeOf(ev.date, ev.time);
+      L.push(`DTSTART:${d}T${pad(h)}${pad(m)}00`);
+      L.push(`DTEND:${endDate.replaceAll('-', '')}T${pad(eh)}${pad(m)}00`);
+    } else {
+      L.push('DTSTART;VALUE=DATE:' + d);
+      L.push('DTEND;VALUE=DATE:' + isoNextDay(ev.date).replaceAll('-', ''));
+    }
+    L.push('SUMMARY:' + icsEscape(ev.title));
+    if (ev.location) L.push('LOCATION:' + icsEscape(ev.location));
+    if (ev.note) L.push('DESCRIPTION:' + icsEscape(ev.note));
+    L.push('END:VEVENT');
+  });
+  L.push('END:VCALENDAR');
+  return L.join('\r\n');
+}
+function downloadICS(events) {
+  const blob = new Blob([buildICS(events)], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'trip-to-japan.ics';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+/* ---------- storage ---------- */
+async function loadAll() {
+  try {
+    const r = await window.storage.get(STORAGE_V2);
+    if (r && r.value) {
+      const p = JSON.parse(r.value);
+      return {
+        current: { ...freshEmpty(), ...(p.current || {}) },
+        archives: (p.archives || []).map((a) => ({ ...a, data: { ...freshEmpty(), ...a.data } })),
+      };
+    }
+  } catch (e) { /* not found */ }
+  try {
+    const r = await window.storage.get(STORAGE_V1);
+    if (r && r.value) return { current: { ...freshEmpty(), ...JSON.parse(r.value) }, archives: [] };
+  } catch (e) { /* not found */ }
+  return null;
+}
+async function saveAll(store) {
+  try { await window.storage.set(STORAGE_V2, JSON.stringify(store)); } catch (e) { /* ignore */ }
+}
+
+/* ---------- sections meta ---------- */
+const SECTIONS = [
+  { key: 'shopping', label: '買い物', icon: ShoppingBag, accent: C.sky },
+  { key: 'souvenir', label: 'お土産', icon: Gift, accent: C.coral },
+  { key: 'people', label: '会う人', icon: Users, accent: C.sky },
+  { key: 'places', label: '場所', icon: MapPin, accent: C.coral },
+  { key: 'food', label: '食べる', icon: Utensils, accent: C.mint },
+  { key: 'todo', label: 'ToDo', icon: ClipboardList, accent: C.lav },
+  { key: 'timeline', label: '予定', icon: CalendarDays, accent: C.coral },
+];
+
+const SOURCE_META = {
+  people: { label: '会う', color: C.sky, soft: C.skySoft },
+  places: { label: '場所', color: C.coral, soft: C.coralSoft },
+  food: { label: '食事', color: C.mint, soft: C.mintSoft },
+  todo: { label: 'ToDo', color: C.lav, soft: C.lavSoft },
+};
+
+const cardShadow = '0 2px 10px rgba(86, 137, 175, 0.07)';
+
+/* ---------- small UI bits ---------- */
+function Segmented({ tabs, value, onChange }) {
+  return (
+    <div style={{ display: 'flex', gap: 4, background: '#fff', border: `1px solid ${C.line}`, borderRadius: 13, padding: 4, boxShadow: cardShadow }}>
+      {tabs.map((t) => {
+        const on = value === t.key;
+        return (
+          <button
+            key={t.key}
+            onClick={() => onChange(t.key)}
+            style={{
+              flex: 1, padding: '9px 4px', borderRadius: 10, border: 'none', cursor: 'pointer',
+              fontFamily: BODY, fontSize: 12.5, fontWeight: on ? 700 : 500,
+              color: on ? '#fff' : C.sub, background: on ? (t.color || C.sky) : 'transparent',
+              transition: 'all .15s',
+            }}
+          >
+            {t.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ItemRow({ item, accent, onToggle, onUpdate, onDelete, showDate, showTime, showLocation, showCalendar, showPrice, currency }) {
+  const [open, setOpen] = useState(false);
+  const inputStyle = {
+    width: '100%', boxSizing: 'border-box', padding: '9px 10px', borderRadius: 10,
+    border: `1px solid ${C.line}`, fontFamily: BODY, fontSize: 13.5, color: C.ink,
+    background: C.bg, outline: 'none',
+  };
+  const subBits = [];
+  if (item.date) subBits.push(fmtJP(item.date) + (item.time ? ` ${item.time}` : ''));
+  if (item.location) subBits.push(item.location);
+  if (showPrice && item.price) subBits.push(`${currency}${Number(item.price).toLocaleString()}`);
+  return (
+    <div style={{
+      background: C.card, border: `1px solid ${C.line}`, borderLeft: `4px solid ${item.done ? '#CFE0DA' : accent}`,
+      borderRadius: 15, marginBottom: 9, overflow: 'hidden', boxShadow: cardShadow,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '12px 12px' }}>
+        <button
+          onClick={onToggle}
+          aria-label="完了"
+          style={{
+            flexShrink: 0, width: 24, height: 24, borderRadius: 8, cursor: 'pointer',
+            border: `2px solid ${item.done ? C.done : '#CBDEEA'}`,
+            background: item.done ? C.done : 'transparent',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+            transition: 'all .15s',
+          }}
+        >
+          {item.done && <Check size={14} color="#fff" strokeWidth={3} />}
+        </button>
+
+        <button
+          onClick={() => setOpen((o) => !o)}
+          style={{ flex: 1, textAlign: 'left', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, minWidth: 0 }}
+        >
+          {item.recipient ? (
+            <span style={{
+              display: 'inline-block', fontSize: 11, fontWeight: 700, color: accent,
+              background: softOf(accent),
+              padding: '1px 8px', borderRadius: 99, marginRight: 7, fontFamily: BODY,
+            }}>{item.recipient}</span>
+          ) : null}
+          <span style={{
+            fontFamily: BODY, fontSize: 14.5, color: item.done ? C.sub : C.ink,
+            textDecoration: item.done ? 'line-through' : 'none', wordBreak: 'break-word',
+          }}>{item.title}</span>
+          {subBits.length > 0 && (
+            <div style={{ marginTop: 3, fontSize: 11.5, color: C.sub, fontFamily: BODY }}>
+              {subBits.join(' · ')}
+            </div>
+          )}
+        </button>
+
+        <ChevronDown
+          size={18} color={C.sub}
+          style={{ flexShrink: 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}
+        />
+      </div>
+
+      {open && (
+        <div style={{ padding: '4px 12px 13px', display: 'grid', gap: 9, borderTop: `1px dashed ${C.coralPale}` }}>
+          <input
+            style={{ ...inputStyle, marginTop: 9, fontWeight: 700 }}
+            placeholder="名前・内容"
+            value={item.title || ''}
+            onChange={(e) => onUpdate({ title: e.target.value })}
+          />
+          <textarea
+            placeholder="メモ"
+            value={item.note || ''}
+            onChange={(e) => onUpdate({ note: e.target.value })}
+            rows={2}
+            style={{ ...inputStyle, resize: 'vertical' }}
+          />
+          {item.recipient !== undefined && (
+            <input style={inputStyle} placeholder="誰に" value={item.recipient || ''} onChange={(e) => onUpdate({ recipient: e.target.value })} />
+          )}
+          {showPrice && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontFamily: BODY, fontSize: 14, color: C.sub, fontWeight: 700 }}>{currency}</span>
+              <input
+                type="number" inputMode="numeric" min="0" placeholder="金額（予算/実額）"
+                style={{ ...inputStyle, flex: 1 }}
+                value={item.price || ''}
+                onChange={(e) => onUpdate({ price: e.target.value })}
+              />
+            </div>
+          )}
+          {showLocation && (
+            <input style={inputStyle} placeholder="場所・お店" value={item.location || ''} onChange={(e) => onUpdate({ location: e.target.value })} />
+          )}
+          {showDate && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input type="date" style={{ ...inputStyle, flex: 1 }} value={item.date || ''} onChange={(e) => onUpdate({ date: e.target.value })} />
+              {showTime && (
+                <input type="time" style={{ ...inputStyle, width: 110 }} value={item.time || ''} onChange={(e) => onUpdate({ time: e.target.value })} />
+              )}
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 2 }}>
+            {showCalendar && item.date ? (
+              <a
+                href={gcalLink(item)} target="_blank" rel="noopener noreferrer"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none',
+                  fontFamily: BODY, fontSize: 12.5, fontWeight: 700, color: '#fff',
+                  background: accent, padding: '8px 13px', borderRadius: 99,
+                }}
+              >
+                <CalendarPlus size={14} /> カレンダーに追加
+              </a>
+            ) : <span />}
+            <button
+              onClick={onDelete}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5, border: 'none', cursor: 'pointer',
+                background: 'transparent', color: '#C9776B', fontFamily: BODY, fontSize: 12.5, fontWeight: 600, padding: '8px 6px',
+              }}
+            >
+              <Trash2 size={14} /> 削除
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AddBar({ fields, accent, onAdd }) {
+  const [vals, setVals] = useState(() => Object.fromEntries(fields.map((f) => [f.key, ''])));
+  const main = fields[fields.length - 1].key;
+  const submit = () => {
+    if (!vals[main]?.trim()) return;
+    onAdd({ ...vals });
+    setVals(Object.fromEntries(fields.map((f) => [f.key, ''])));
+  };
+  return (
+    <div style={{ display: 'flex', gap: 7, marginBottom: 15 }}>
+      {fields.map((f) => (
+        <input
+          key={f.key}
+          value={vals[f.key]}
+          placeholder={f.ph}
+          onChange={(e) => setVals((v) => ({ ...v, [f.key]: e.target.value }))}
+          onKeyDown={(e) => e.key === 'Enter' && submit()}
+          style={{
+            flex: f.flex || 1, minWidth: 0, boxSizing: 'border-box', padding: '12px 14px',
+            borderRadius: 13, border: `1.5px dashed ${C.coralPale}`, fontFamily: BODY, fontSize: 14,
+            color: C.ink, background: '#FFFDFB', outline: 'none',
+          }}
+        />
+      ))}
+      <button
+        onClick={submit}
+        aria-label="追加"
+        style={{
+          flexShrink: 0, width: 47, borderRadius: 13, border: 'none', cursor: 'pointer',
+          background: softOf(accent), color: accent, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+      >
+        <Plus size={21} strokeWidth={2.6} />
+      </button>
+    </div>
+  );
+}
+
+function Empty({ text }) {
+  return (
+    <div style={{ textAlign: 'center', padding: '44px 20px', color: C.sub, fontFamily: BODY, fontSize: 13.5, lineHeight: 1.8, whiteSpace: 'pre-line' }}>
+      <div style={{ fontSize: 11, letterSpacing: 3, color: C.coralPale, marginBottom: 10 }}>· · ✈ · ·</div>
+      {text}
+    </div>
+  );
+}
+
+function TotalBar({ currency, total, remaining, label }) {
+  return (
+    <div style={{
+      display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+      background: 'linear-gradient(120deg, #FFF8F4, #FFFDFB)', border: `1px solid ${C.coralSoft}`,
+      borderRadius: 13, padding: '11px 15px', marginBottom: 13, boxShadow: cardShadow,
+    }}>
+      <div style={{ fontFamily: BODY, fontSize: 12, color: C.sub }}>{label}</div>
+      <div style={{ fontFamily: BODY }}>
+        <span style={{ fontSize: 18, fontWeight: 700, color: C.ink }}>{currency}{total.toLocaleString()}</span>
+        {remaining > 0 && (
+          <span style={{ fontSize: 11.5, color: C.coral, marginLeft: 8, fontWeight: 600 }}>未購入 {currency}{remaining.toLocaleString()}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- main ---------- */
+function App() {
+  const [store, setStore] = useState({ current: freshEmpty(), archives: [] });
+  const [loading, setLoading] = useState(true);
+  const [viewing, setViewing] = useState(null);
+  const [active, setActive] = useState('shopping');
+  const [shopTab, setShopTab] = useState('before');
+  const [souvTab, setSouvTab] = useState('japan');
+  const [editTrip, setEditTrip] = useState(false);
+  const [confirmEnd, setConfirmEnd] = useState(false);
+  const loaded = useRef(false);
+
+  useEffect(() => {
+    loadAll().then((s) => {
+      if (s) setStore(s);
+      loaded.current = true;
+      setLoading(false);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (loaded.current) saveAll(store);
+  }, [store]);
+
+  const archive = viewing ? store.archives.find((a) => a.id === viewing) : null;
+  const data = archive ? archive.data : store.current;
+
+  const setData = (updater) =>
+    setStore((s) => {
+      if (!viewing) return { ...s, current: typeof updater === 'function' ? updater(s.current) : updater };
+      return {
+        ...s,
+        archives: s.archives.map((a) =>
+          a.id === viewing ? { ...a, data: typeof updater === 'function' ? updater(a.data) : updater } : a
+        ),
+      };
+    });
+
+  const getList = (sec, sub) => (sub ? data[sec][sub] : data[sec]);
+  const setList = (sec, sub, list) =>
+    setData((d) => (sub ? { ...d, [sec]: { ...d[sec], [sub]: list } } : { ...d, [sec]: list }));
+
+  const add = (sec, sub, item, defaults = {}) =>
+    setList(sec, sub, [...getList(sec, sub), { id: uid(), done: false, note: '', ...defaults, ...item }]);
+  const toggle = (sec, sub, id) =>
+    setList(sec, sub, getList(sec, sub).map((x) => (x.id === id ? { ...x, done: !x.done } : x)));
+  const update = (sec, sub, id, patch) =>
+    setList(sec, sub, getList(sec, sub).map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  const remove = (sec, sub, id) =>
+    setList(sec, sub, getList(sec, sub).filter((x) => x.id !== id));
+
+  const remaining = (sec, sub) => getList(sec, sub).filter((x) => !x.done).length;
+
+  /* timeline events */
+  const events = [];
+  ['people', 'places', 'food', 'todo'].forEach((sec) =>
+    (data[sec] || []).forEach((it) => { if (it.date) events.push({ ...it, sec }); })
+  );
+  events.sort((a, b) => (a.date + 'T' + (a.time || '00:00')).localeCompare(b.date + 'T' + (b.time || '00:00')));
+  const eventDates = [...new Set(events.map((e) => e.date))];
+
+  const navCount = (sec) => {
+    if (sec === 'shopping') return remaining('shopping', 'before') + remaining('shopping', 'after') + remaining('shopping', 'store');
+    if (sec === 'souvenir') return remaining('souvenir', 'japan') + remaining('souvenir', 'india');
+    if (sec === 'timeline') return events.filter((e) => !e.done && daysFromToday(e.date) >= 0).length;
+    return remaining(sec, null);
+  };
+
+  /* souvenir totals */
+  const souvCurrency = souvTab === 'japan' ? '₹' : '¥';
+  const souvList = data.souvenir[souvTab];
+  const souvTotal = souvList.reduce((s, x) => s + (Number(x.price) || 0), 0);
+  const souvRemaining = souvList.filter((x) => !x.done).reduce((s, x) => s + (Number(x.price) || 0), 0);
+
+  /* countdown / hero */
+  const { start, end } = data.trip;
+  let eyebrow = 'PLAN YOUR TRIP HOME';
+  let heroNode = <span>帰国日を設定</span>;
+  let heroSmall = 'タップして予定を入力';
+  const route = ' · DEL ✈ JPN';
+  if (archive) {
+    eyebrow = 'TRAVEL MEMORIES';
+    heroNode = <span style={{ fontSize: 18 }}>{fmtRange(data.trip)}</span>;
+    heroSmall = '過去の帰国の記録';
+  } else if (start) {
+    const ds = daysFromToday(start);
+    const de = end ? daysFromToday(end) : null;
+    if (ds > 0) {
+      eyebrow = 'JAPAN BOUND · BOARDING SOON';
+      heroNode = <span>あと <span style={{ color: C.coral }}>{ds}</span> 日</span>;
+      heroSmall = `${fmtJP(start)}${end ? ' 〜 ' + fmtJP(end) : ''}${route}`;
+    } else if (ds === 0) {
+      eyebrow = 'DEPARTURE DAY · HAVE A NICE FLIGHT';
+      heroNode = <span>今日、<span style={{ color: C.coral }}>帰国</span></span>;
+      heroSmall = `${fmtJP(start)}${route}`;
+    } else if (de !== null && de >= 0) {
+      eyebrow = 'NOW IN JAPAN · ENJOY YOUR STAY';
+      heroNode = <span>帰国中 <span style={{ color: C.coral, fontSize: 17 }}>あと{de}日</span></span>;
+      heroSmall = `${fmtJP(end)}まで`;
+    } else {
+      eyebrow = 'TRIP COMPLETED · SEE YOU NEXT TIME';
+      heroNode = <span>おかえりなさい</span>;
+      heroSmall = `${fmtJP(start)}${end ? ' 〜 ' + fmtJP(end) : ''}`;
+    }
+  }
+
+  const finishTrip = () => {
+    setStore((s) => ({
+      current: freshEmpty(),
+      archives: [
+        { id: uid(), archivedAt: new Date().toISOString(), data: JSON.parse(JSON.stringify(s.current)) },
+        ...s.archives,
+      ],
+    }));
+    setConfirmEnd(false);
+    setEditTrip(false);
+    setActive('shopping');
+  };
+
+  if (loading) {
+    return (
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.bg, color: C.sub, fontFamily: BODY }}>
+        読み込み中…
+      </div>
+    );
+  }
+
+  const btnSmall = {
+    border: `1px solid ${C.line}`, background: C.card, cursor: 'pointer', borderRadius: 11,
+    fontFamily: BODY, fontSize: 12.5, fontWeight: 700, padding: '10px 12px', color: C.ink,
+  };
+  const dateInput = {
+    width: '100%', boxSizing: 'border-box', marginTop: 4, padding: '9px 10px', borderRadius: 10,
+    border: `1px solid ${C.line}`, fontFamily: BODY, fontSize: 13.5, background: '#fff', color: C.ink, outline: 'none',
+  };
+
+  return (
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: C.bg, fontFamily: BODY, color: C.ink, maxWidth: 520, margin: '0 auto', position: 'relative' }}>
+      {/* ---- header: boarding-pass ---- */}
+      <header style={{
+        flexShrink: 0, position: 'relative',
+        background: archive
+          ? 'linear-gradient(125deg, #FBEFE7 0%, #FDF6F0 50%, #FFE9DB 100%)'
+          : 'linear-gradient(125deg, #D8EDFB 0%, #EAF5FD 32%, #FFE9DB 64%, #FFDCC6 100%)',
+      }}>
+        {archive && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 18px 0' }}>
+            <button
+              onClick={() => { setViewing(null); setEditTrip(false); }}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', cursor: 'pointer',
+                background: C.coral, color: '#fff', borderRadius: 99, padding: '7px 14px',
+                fontFamily: BODY, fontSize: 12.5, fontWeight: 700,
+              }}
+            >
+              <ArrowLeft size={14} /> 現在のプランに戻る
+            </button>
+            <span style={{ fontFamily: BODY, fontSize: 11, color: C.coral, fontWeight: 700 }}>過去の記録を表示中</span>
+          </div>
+        )}
+        <button
+          onClick={() => setEditTrip((v) => !v)}
+          style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', padding: '16px 18px 17px', display: 'flex', alignItems: 'center', gap: 14 }}
+        >
+          <div style={{
+            width: 46, height: 46, borderRadius: 14, background: 'rgba(255,255,255,0.75)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            boxShadow: '0 2px 8px rgba(120,100,90,.10)',
+          }}>
+            {archive ? <Archive size={20} color={C.coral} /> : <Plane size={22} color={C.sky} style={{ transform: 'rotate(-20deg)' }} />}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: BODY, fontSize: 9.5, letterSpacing: 2.2, color: C.coral, fontWeight: 700 }}>{eyebrow}</div>
+            <div style={{ fontFamily: DISPLAY, fontSize: 25, fontWeight: 700, color: C.ink, lineHeight: 1.25, marginTop: 1 }}>{heroNode}</div>
+            <div style={{ fontFamily: BODY, fontSize: 12, color: '#8E7E76', marginTop: 2 }}>{heroSmall}</div>
+          </div>
+          <ChevronDown size={18} color="#A99A92" style={{ transform: editTrip ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
+        </button>
+
+        {editTrip && (
+          <div style={{ padding: '0 18px 18px', display: 'grid', gap: 12 }}>
+            {!archive && (
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+                <label style={{ flex: 1, fontSize: 11, color: '#8E7E76', fontWeight: 600 }}>帰国日
+                  <input type="date" value={start} onChange={(e) => setData((d) => ({ ...d, trip: { ...d.trip, start: e.target.value } }))} style={dateInput} />
+                </label>
+                <label style={{ flex: 1, fontSize: 11, color: '#8E7E76', fontWeight: 600 }}>戻る日
+                  <input type="date" value={end} onChange={(e) => setData((d) => ({ ...d, trip: { ...d.trip, end: e.target.value } }))} style={dateInput} />
+                </label>
+              </div>
+            )}
+
+            {!archive && (
+              !confirmEnd ? (
+                <button
+                  onClick={() => setConfirmEnd(true)}
+                  style={{
+                    ...btnSmall, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                    color: C.coral, border: `1.5px dashed ${C.coralPale}`, background: 'rgba(255,255,255,0.8)', borderRadius: 99,
+                  }}
+                >
+                  <Archive size={15} /> この帰国を終了して記録に保存
+                </button>
+              ) : (
+                <div style={{ background: 'rgba(255,255,255,0.85)', borderRadius: 14, padding: '13px 15px' }}>
+                  <div style={{ fontFamily: BODY, fontSize: 12.5, color: C.ink, lineHeight: 1.6, marginBottom: 10 }}>
+                    現在のリストをすべて過去の記録に移し、新しい空のプランを開始します。記録はいつでも参照できます。
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={finishTrip} style={{ ...btnSmall, flex: 1, background: C.coral, color: '#fff', border: 'none', borderRadius: 99 }}>終了して保存</button>
+                    <button onClick={() => setConfirmEnd(false)} style={{ ...btnSmall, flex: 1, borderRadius: 99 }}>やめる</button>
+                  </div>
+                </div>
+              )
+            )}
+
+            {store.archives.length > 0 && (
+              <div>
+                <div style={{ fontFamily: BODY, fontSize: 9.5, color: '#A9988F', fontWeight: 700, marginBottom: 6, letterSpacing: 2 }}>PAST TRIPS</div>
+                {store.archives.map((a) => {
+                  const cnt = ['people', 'places', 'food', 'todo'].reduce((n, k) => n + (a.data[k] || []).length, 0)
+                    + ['before', 'after', 'store'].reduce((n, k) => n + a.data.shopping[k].length, 0)
+                    + a.data.souvenir.japan.length + a.data.souvenir.india.length;
+                  const isOpen = viewing === a.id;
+                  return (
+                    <button
+                      key={a.id}
+                      onClick={() => { setViewing(isOpen ? null : a.id); setEditTrip(false); setActive('shopping'); }}
+                      style={{
+                        width: '100%', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left',
+                        background: 'rgba(255,255,255,0.85)', border: `1px solid ${isOpen ? C.coral : 'rgba(255,255,255,0.9)'}`,
+                        borderRadius: 13, padding: '11px 14px', marginBottom: 6, cursor: 'pointer',
+                      }}
+                    >
+                      <Archive size={16} color={C.coral} style={{ flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontFamily: BODY, fontSize: 13.5, fontWeight: 700, color: C.ink }}>{fmtRange(a.data.trip)}</div>
+                        <div style={{ fontFamily: BODY, fontSize: 11, color: '#A9988F', marginTop: 1 }}>全{cnt}項目</div>
+                      </div>
+                      <ChevronRight size={16} color="#A9988F" style={{ flexShrink: 0 }} />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ticket perforation + notches */}
+        <div style={{ borderBottom: `2px dashed ${C.coralPale}`, position: 'relative' }}>
+          <span style={{ position: 'absolute', left: -10, top: -9, width: 19, height: 19, borderRadius: '50%', background: C.bg }} />
+          <span style={{ position: 'absolute', right: -10, top: -9, width: 19, height: 19, borderRadius: '50%', background: C.bg }} />
+        </div>
+      </header>
+
+      {/* ---- scroll area ---- */}
+      <main style={{ flex: 1, overflowY: 'auto', padding: '17px 16px 90px' }}>
+        {active === 'shopping' && (
+          <>
+            <Segmented
+              value={shopTab} onChange={setShopTab}
+              tabs={[
+                { key: 'before', label: '帰国前に注文', color: C.sky },
+                { key: 'after', label: '帰国後に注文', color: C.sky },
+                { key: 'store', label: 'お店で購入', color: C.sky },
+              ]}
+            />
+            <div style={{ height: 15 }} />
+            {!archive && <AddBar fields={[{ key: 'title', ph: '買うもの' }]} accent={C.sky} onAdd={(it) => add('shopping', shopTab, it)} />}
+            {getList('shopping', shopTab).length === 0
+              ? <Empty text={archive ? 'この帰国では記録がありません。' : shopTab === 'before' ? '帰国前にネットで注文しておくものを追加。\n（書籍・コスメ・受け取りたい荷物など）' : shopTab === 'after' ? '日本から戻る前／戻った後に注文するものを追加。' : '日本のお店で直接買うものを追加。'} />
+              : getList('shopping', shopTab).map((it) => (
+                <ItemRow key={it.id} item={it} accent={C.sky}
+                  onToggle={() => toggle('shopping', shopTab, it.id)}
+                  onUpdate={(p) => update('shopping', shopTab, it.id, p)}
+                  onDelete={() => remove('shopping', shopTab, it.id)} />
+              ))}
+          </>
+        )}
+
+        {active === 'souvenir' && (
+          <>
+            <Segmented
+              value={souvTab} onChange={setSouvTab}
+              tabs={[
+                { key: 'japan', label: '日本の人へ', color: C.sky },
+                { key: 'india', label: 'インドの人へ', color: C.coral },
+              ]}
+            />
+            <div style={{ height: 15 }} />
+            {souvTotal > 0 && (
+              <TotalBar
+                currency={souvCurrency}
+                total={souvTotal}
+                remaining={souvRemaining}
+                label={souvTab === 'japan' ? '合計（インドで購入）' : '合計（日本で購入）'}
+              />
+            )}
+            {!archive && (
+              <AddBar
+                fields={[{ key: 'recipient', ph: '誰に', flex: 0.8 }, { key: 'title', ph: '何を', flex: 1.4 }]}
+                accent={souvTab === 'japan' ? C.sky : C.coral}
+                onAdd={(it) => add('souvenir', souvTab, it, { recipient: '', price: '' })} />
+            )}
+            {souvList.length === 0
+              ? <Empty text={archive ? 'この帰国では記録がありません。' : souvTab === 'japan' ? '日本で会う人へのお土産（インドの紅茶・スパイス・雑貨など）を追加。\n項目を開くと金額を入力できます。' : 'インドに戻ってから渡すお土産（日本のお菓子・文具など）を追加。\n項目を開くと金額を入力できます。'} />
+              : souvList.map((it) => (
+                <ItemRow key={it.id} item={it} accent={souvTab === 'japan' ? C.sky : C.coral}
+                  showPrice currency={souvCurrency}
+                  onToggle={() => toggle('souvenir', souvTab, it.id)}
+                  onUpdate={(p) => update('souvenir', souvTab, it.id, p)}
+                  onDelete={() => remove('souvenir', souvTab, it.id)} />
+              ))}
+          </>
+        )}
+
+        {active === 'people' && (
+          <>
+            {!archive && <AddBar fields={[{ key: 'title', ph: '会う人の名前' }]} accent={C.sky} onAdd={(it) => add('people', null, it, { date: '', time: '', location: '' })} />}
+            {data.people.length === 0
+              ? <Empty text={archive ? 'この帰国では記録がありません。' : '会いたい人を追加。\n日付を入れるとGoogleカレンダーに登録できます。'} />
+              : data.people.map((it) => (
+                <ItemRow key={it.id} item={it} accent={C.sky} showDate showTime showLocation showCalendar
+                  onToggle={() => toggle('people', null, it.id)}
+                  onUpdate={(p) => update('people', null, it.id, p)}
+                  onDelete={() => remove('people', null, it.id)} />
+              ))}
+          </>
+        )}
+
+        {active === 'places' && (
+          <>
+            {!archive && <AddBar fields={[{ key: 'title', ph: '行きたい場所' }]} accent={C.coral} onAdd={(it) => add('places', null, it, { date: '', time: '', location: '' })} />}
+            {data.places.length === 0
+              ? <Empty text={archive ? 'この帰国では記録がありません。' : '行きたい場所を追加。\n日付を入れるとカレンダーに登録できます。'} />
+              : data.places.map((it) => (
+                <ItemRow key={it.id} item={it} accent={C.coral} showDate showTime showLocation showCalendar
+                  onToggle={() => toggle('places', null, it.id)}
+                  onUpdate={(p) => update('places', null, it.id, p)}
+                  onDelete={() => remove('places', null, it.id)} />
+              ))}
+          </>
+        )}
+
+        {active === 'food' && (
+          <>
+            {!archive && <AddBar fields={[{ key: 'title', ph: '食べたいもの' }]} accent={C.mint} onAdd={(it) => add('food', null, it, { location: '', date: '', time: '' })} />}
+            {data.food.length === 0
+              ? <Empty text={archive ? 'この帰国では記録がありません。' : '食べたいものを追加。\n予約した日を入れるとカレンダーに登録できます。'} />
+              : data.food.map((it) => (
+                <ItemRow key={it.id} item={it} accent={C.mint} showLocation showDate showTime showCalendar
+                  onToggle={() => toggle('food', null, it.id)}
+                  onUpdate={(p) => update('food', null, it.id, p)}
+                  onDelete={() => remove('food', null, it.id)} />
+              ))}
+          </>
+        )}
+
+        {active === 'todo' && (
+          <>
+            {!archive && <AddBar fields={[{ key: 'title', ph: 'やること' }]} accent={C.lav} onAdd={(it) => add('todo', null, it, { date: '', time: '', location: '' })} />}
+            {data.todo.length === 0
+              ? <Empty text={archive ? 'この帰国では記録がありません。' : 'やることを追加。\n（健康診断、通販のキャンセル、役所手続き、銀行など）\n日付を入れるとカレンダーと予定一覧にも載ります。'} />
+              : data.todo.map((it) => (
+                <ItemRow key={it.id} item={it} accent={C.lav} showDate showTime showLocation showCalendar
+                  onToggle={() => toggle('todo', null, it.id)}
+                  onUpdate={(p) => update('todo', null, it.id, p)}
+                  onDelete={() => remove('todo', null, it.id)} />
+              ))}
+          </>
+        )}
+
+        {active === 'timeline' && (
+          <>
+            {events.length > 0 && !archive && (
+              <>
+                <button
+                  onClick={() => downloadICS(events)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    border: 'none', cursor: 'pointer', borderRadius: 99,
+                    background: 'linear-gradient(120deg, #5FAEDF, #F0876C)', color: '#fff',
+                    fontFamily: BODY, fontSize: 13.5, fontWeight: 700,
+                    padding: '13px 0', marginBottom: 7, boxShadow: '0 4px 14px rgba(240,135,108,.25)',
+                  }}
+                >
+                  <Download size={16} /> 全{events.length}件をカレンダー用ファイルで書き出し
+                </button>
+                <div style={{ fontFamily: BODY, fontSize: 11, color: C.sub, textAlign: 'center', marginBottom: 15, lineHeight: 1.6 }}>
+                  .icsファイルをGoogleカレンダーにインポートすると全件まとめて登録されます
+                </div>
+              </>
+            )}
+            {events.length === 0
+              ? <Empty text={archive ? 'この帰国では日付つきの記録がありません。' : '日付の入った予定がここに並びます。\n「会う人」「場所」「食べる」「ToDo」で日付を設定してください。'} />
+              : eventDates.map((d) => {
+                const diff = daysFromToday(d);
+                const rel = archive ? '' : diff === 0 ? '今日' : diff === 1 ? '明日' : diff > 1 ? `あと${diff}日` : '終了';
+                return (
+                  <div key={d} style={{ marginBottom: 19, opacity: !archive && diff < 0 ? 0.55 : 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8, padding: '0 2px' }}>
+                      <span style={{ fontFamily: DISPLAY, fontSize: 16, fontWeight: 700, color: C.ink }}>{fmtJP(d)}</span>
+                      {rel && (
+                        <span style={{
+                          fontFamily: BODY, fontSize: 10.5, fontWeight: 700,
+                          color: diff === 0 ? '#fff' : C.sub,
+                          background: diff === 0 ? C.coral : 'transparent',
+                          padding: diff === 0 ? '2px 9px' : 0, borderRadius: 99,
+                        }}>{rel}</span>
+                      )}
+                    </div>
+                    {events.filter((e) => e.date === d).map((e) => {
+                      const m = SOURCE_META[e.sec];
+                      return (
+                        <div key={e.sec + e.id} style={{
+                          display: 'flex', alignItems: 'center', gap: 11,
+                          background: C.card, border: `1px solid ${C.line}`, borderLeft: `4px solid ${m.color}`,
+                          borderRadius: 13, padding: '11px 12px', marginBottom: 7, boxShadow: cardShadow,
+                        }}>
+                          <div style={{ flexShrink: 0, width: 46, textAlign: 'center', fontFamily: BODY, fontSize: 12.5, fontWeight: 700, color: e.time ? C.ink : C.sub }}>
+                            {e.time || '終日'}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontFamily: BODY, fontSize: 14, color: e.done ? C.sub : C.ink, textDecoration: e.done ? 'line-through' : 'none' }}>
+                              <span style={{
+                                display: 'inline-block', fontSize: 10, fontWeight: 700, color: m.color, background: m.soft,
+                                padding: '1px 7px', borderRadius: 99, marginRight: 6, verticalAlign: 'middle',
+                              }}>{m.label}</span>
+                              {e.title}
+                            </div>
+                            {e.location && <div style={{ fontFamily: BODY, fontSize: 11.5, color: C.sub, marginTop: 2 }}>{e.location}</div>}
+                          </div>
+                          {!archive && (
+                            <a
+                              href={gcalLink(e)} target="_blank" rel="noopener noreferrer" aria-label="カレンダーに追加"
+                              style={{
+                                flexShrink: 0, width: 34, height: 34, borderRadius: 99, textDecoration: 'none',
+                                background: m.soft, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              }}
+                            >
+                              <CalendarPlus size={16} color={m.color} />
+                            </a>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+          </>
+        )}
+      </main>
+
+      {/* ---- bottom nav ---- */}
+      <nav style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0, display: 'flex',
+        background: 'rgba(255,255,255,0.96)', borderTop: `1px solid ${C.line}`,
+        paddingBottom: 'env(safe-area-inset-bottom)', boxShadow: '0 -4px 16px rgba(90,140,175,.06)',
+      }}>
+        {SECTIONS.map((s) => {
+          const on = active === s.key;
+          const Icon = s.icon;
+          const cnt = navCount(s.key);
+          return (
+            <button
+              key={s.key}
+              onClick={() => setActive(s.key)}
+              style={{
+                flex: 1, border: 'none', background: 'transparent', cursor: 'pointer',
+                padding: '8px 1px 11px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, position: 'relative', minWidth: 0,
+              }}
+            >
+              <div style={{
+                position: 'relative', width: 33, height: 26, borderRadius: 99,
+                background: on ? softOf(s.accent) : 'transparent',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background .15s',
+              }}>
+                <Icon size={19} color={on ? s.accent : '#A9BCC9'} strokeWidth={on ? 2.4 : 2} />
+                {cnt > 0 && (
+                  <span style={{
+                    position: 'absolute', top: -5, right: -7, minWidth: 15, height: 15, padding: '0 3px',
+                    borderRadius: 99, background: s.accent, color: '#fff', fontSize: 9.5, fontWeight: 700,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: BODY,
+                    border: '1.5px solid #fff',
+                  }}>{cnt}</span>
+                )}
+              </div>
+              <span style={{ fontFamily: BODY, fontSize: 9.5, fontWeight: on ? 700 : 500, color: on ? s.accent : '#A9BCC9', whiteSpace: 'nowrap' }}>{s.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+</script>
+</body>
+</html>
