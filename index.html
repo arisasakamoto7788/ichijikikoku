@@ -2,957 +2,443 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="帰国プランナー">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#D8EDFB">
 <title>一時帰国プランナー</title>
-<script>
-// PWA manifest inline
-const manifest = {
-  name: "一時帰国プランナー",
-  short_name: "帰国プランナー",
-  display: "standalone",
-  background_color: "#F3F8FC",
-  theme_color: "#D8EDFB",
-  icons: []
-};
-const blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
-const ml = document.createElement('link');
-ml.rel = 'manifest';
-ml.href = URL.createObjectURL(blob);
-document.head.appendChild(ml);
-</script>
 <style>
-  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-  html,body,#root{height:100%;width:100%;overflow:hidden;}
-  input,textarea,button{font-family:inherit;}
-  input[type=date]::-webkit-calendar-picker-indicator{opacity:0.5;}
+:root{
+  --bg:#F3F8FC; --card:#FFFFFF; --ink:#27415A; --sub:#859DB0; --line:#DFEDF6;
+  --sky:#4FA3D9; --skySoft:#E4F2FB; --coral:#F0876C; --coralSoft:#FDEDE6;
+  --coralPale:#F4CDBB; --mint:#54B393; --mintSoft:#E5F5EE; --lav:#9C88CC; --lavSoft:#F0EBF9;
+  --done:#54B393;
+  --display:"Hiragino Mincho ProN","Yu Mincho",YuMincho,"Noto Serif JP",Georgia,serif;
+  --body:"Hiragino Kaku Gothic ProN","Yu Gothic","Noto Sans JP",system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{font-family:var(--body);background:var(--bg);color:var(--ink);overflow:hidden;}
+#app{height:100vh;height:100dvh;display:flex;flex-direction:column;max-width:520px;margin:0 auto;position:relative;background:var(--bg);}
+input,textarea,button{font-family:inherit;font-size:16px;}
+button{cursor:pointer;}
+input[type=date]::-webkit-date-and-time-value{text-align:left;}
+
+/* header */
+.hdr{flex-shrink:0;position:relative;background:linear-gradient(125deg,#D8EDFB 0%,#EAF5FD 32%,#FFE9DB 64%,#FFDCC6 100%);}
+.hdr.arch{background:linear-gradient(125deg,#FBEFE7 0%,#FDF6F0 50%,#FFE9DB 100%);}
+.hdrTop{width:100%;border:none;background:transparent;text-align:left;padding:16px 18px 17px;display:flex;align-items:center;gap:14px;}
+.hdrIcon{width:46px;height:46px;border-radius:14px;background:rgba(255,255,255,.75);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 8px rgba(120,100,90,.10);}
+.eyebrow{font-size:9.5px;letter-spacing:2.2px;color:var(--coral);font-weight:700;}
+.heroBig{font-family:var(--display);font-size:25px;font-weight:700;line-height:1.25;margin-top:1px;}
+.heroBig .n{color:var(--coral);}
+.heroSmall{font-size:12px;color:#8E7E76;margin-top:2px;}
+.perf{border-bottom:2px dashed var(--coralPale);position:relative;}
+.perf::before,.perf::after{content:"";position:absolute;top:-9px;width:19px;height:19px;border-radius:50%;background:var(--bg);}
+.perf::before{left:-10px;} .perf::after{right:-10px;}
+.tripPanel{padding:0 18px 18px;display:none;gap:12px;flex-direction:column;}
+.tripPanel.open{display:flex;}
+.tripRow{display:flex;gap:10px;align-items:flex-end;}
+.tripRow label{flex:1;font-size:11px;color:#8E7E76;font-weight:600;}
+.din{width:100%;box-sizing:border-box;margin-top:4px;padding:9px 10px;border-radius:10px;border:1px solid var(--line);font-size:13.5px;background:#fff;color:var(--ink);outline:none;}
+.endBtn{border:1.5px dashed var(--coralPale);background:rgba(255,255,255,.8);border-radius:99px;padding:11px;font-size:12.5px;font-weight:700;color:var(--coral);display:flex;align-items:center;justify-content:center;gap:7px;}
+.confirmBox{background:rgba(255,255,255,.85);border-radius:14px;padding:13px 15px;}
+.confirmBox p{font-size:12.5px;line-height:1.6;margin-bottom:10px;}
+.cfRow{display:flex;gap:8px;}
+.cfRow button{flex:1;border-radius:99px;padding:11px;font-size:12.5px;font-weight:700;border:1px solid var(--line);background:#fff;color:var(--ink);}
+.cfRow .yes{background:var(--coral);color:#fff;border:none;}
+.archHead{font-size:9.5px;color:#A9988F;font-weight:700;letter-spacing:2px;margin-bottom:6px;}
+.archItem{width:100%;display:flex;align-items:center;gap:10px;text-align:left;background:rgba(255,255,255,.85);border:1px solid rgba(255,255,255,.9);border-radius:13px;padding:11px 14px;margin-bottom:6px;}
+.archItem.sel{border-color:var(--coral);}
+.archItem .t{flex:1;min-width:0;}
+.archItem .t1{font-size:13.5px;font-weight:700;}
+.archItem .t2{font-size:11px;color:#A9988F;margin-top:1px;}
+.backBtn{display:inline-flex;align-items:center;gap:6px;border:none;background:var(--coral);color:#fff;border-radius:99px;padding:7px 14px;font-size:12.5px;font-weight:700;}
+.archBar{display:flex;align-items:center;gap:8px;padding:12px 18px 0;}
+.archBar .lbl{font-size:11px;color:var(--coral);font-weight:700;}
+
+/* main */
+.main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:17px 16px 92px;}
+.seg{display:flex;gap:4px;background:#fff;border:1px solid var(--line);border-radius:13px;padding:4px;box-shadow:0 2px 10px rgba(86,137,175,.07);margin-bottom:15px;}
+.seg button{flex:1;padding:9px 4px;border-radius:10px;border:none;font-size:12.5px;font-weight:500;color:var(--sub);background:transparent;transition:all .15s;}
+.seg button.on{color:#fff;font-weight:700;}
+.addbar{display:flex;gap:7px;margin-bottom:15px;}
+.addbar input{flex:1;min-width:0;box-sizing:border-box;padding:12px 14px;border-radius:13px;border:1.5px dashed var(--coralPale);font-size:14px;color:var(--ink);background:#FFFDFB;outline:none;}
+.addbar .addBtn{flex-shrink:0;width:47px;border-radius:13px;border:none;display:flex;align-items:center;justify-content:center;}
+.total{display:flex;justify-content:space-between;align-items:baseline;background:linear-gradient(120deg,#FFF8F4,#FFFDFB);border:1px solid var(--coralSoft);border-radius:13px;padding:11px 15px;margin-bottom:13px;box-shadow:0 2px 10px rgba(86,137,175,.07);}
+.total .lbl{font-size:12px;color:var(--sub);}
+.total .v{font-size:18px;font-weight:700;}
+.total .rem{font-size:11.5px;color:var(--coral);margin-left:8px;font-weight:600;}
+.empty{text-align:center;padding:44px 20px;color:var(--sub);font-size:13.5px;line-height:1.8;white-space:pre-line;}
+.empty .dots{font-size:11px;letter-spacing:3px;color:var(--coralPale);margin-bottom:10px;}
+
+/* item card */
+.card{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--sky);border-radius:15px;margin-bottom:9px;overflow:hidden;box-shadow:0 2px 10px rgba(86,137,175,.07);}
+.card.done{border-left-color:#CFE0DA;}
+.cardTop{display:flex;align-items:center;gap:11px;padding:12px;}
+.chk{flex-shrink:0;width:24px;height:24px;border-radius:8px;border:2px solid #CBDEEA;background:transparent;display:flex;align-items:center;justify-content:center;padding:0;transition:all .15s;}
+.chk.on{border-color:var(--done);background:var(--done);}
+.cardMain{flex:1;text-align:left;border:none;background:transparent;padding:0;min-width:0;}
+.recip{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:99px;margin-right:7px;}
+.ttl{font-size:14.5px;word-break:break-word;}
+.ttl.done{color:var(--sub);text-decoration:line-through;}
+.sub{margin-top:3px;font-size:11.5px;color:var(--sub);}
+.chev{flex-shrink:0;transition:transform .2s;}
+.chev.open{transform:rotate(180deg);}
+.detail{padding:4px 12px 13px;display:none;gap:9px;border-top:1px dashed var(--coralPale);}
+.detail.open{display:grid;}
+.detail input,.detail textarea{width:100%;box-sizing:border-box;padding:9px 10px;border-radius:10px;border:1px solid var(--line);font-size:13.5px;color:var(--ink);background:var(--bg);outline:none;}
+.detail .ti{margin-top:9px;font-weight:700;}
+.detail textarea{resize:vertical;}
+.priceRow{display:flex;align-items:center;gap:8px;}
+.priceRow .cur{font-size:14px;color:var(--sub);font-weight:700;}
+.dateRow{display:flex;gap:8px;}
+.dateRow .d{flex:1;}
+.dateRow .t{width:120px;}
+.actRow{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:2px;}
+.calBtn{display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-size:12.5px;font-weight:700;color:#fff;padding:8px 13px;border-radius:99px;}
+.delBtn{display:inline-flex;align-items:center;gap:5px;border:none;background:transparent;color:#C9776B;font-size:12.5px;font-weight:600;padding:8px 6px;}
+
+/* timeline */
+.icsBtn{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:99px;background:linear-gradient(120deg,#5FAEDF,#F0876C);color:#fff;font-size:13.5px;font-weight:700;padding:13px 0;margin-bottom:7px;box-shadow:0 4px 14px rgba(240,135,108,.25);}
+.icsHint{font-size:11px;color:var(--sub);text-align:center;margin-bottom:15px;line-height:1.6;}
+.tlDay{margin-bottom:19px;}
+.tlHead{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;padding:0 2px;}
+.tlHead .dt{font-family:var(--display);font-size:16px;font-weight:700;}
+.tlHead .rel{font-size:10.5px;font-weight:700;color:var(--sub);}
+.tlHead .rel.today{color:#fff;background:var(--coral);padding:2px 9px;border-radius:99px;}
+.tlCard{display:flex;align-items:center;gap:11px;background:var(--card);border:1px solid var(--line);border-radius:13px;padding:11px 12px;margin-bottom:7px;box-shadow:0 2px 10px rgba(86,137,175,.07);}
+.tlTime{flex-shrink:0;width:46px;text-align:center;font-size:12.5px;font-weight:700;}
+.tlBody{flex:1;min-width:0;}
+.tlTtl{font-size:14px;}
+.tlTtl.done{color:var(--sub);text-decoration:line-through;}
+.tlTag{display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px;margin-right:6px;vertical-align:middle;}
+.tlLoc{font-size:11.5px;color:var(--sub);margin-top:2px;}
+.tlCal{flex-shrink:0;width:34px;height:34px;border-radius:99px;text-decoration:none;display:flex;align-items:center;justify-content:center;}
+
+/* bottom nav */
+.nav{position:absolute;left:0;right:0;bottom:0;display:flex;background:rgba(255,255,255,.97);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);box-shadow:0 -4px 16px rgba(90,140,175,.06);}
+.nav button{flex:1;border:none;background:transparent;padding:8px 1px 11px;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;min-width:0;}
+.nav .pill{position:relative;width:33px;height:26px;border-radius:99px;display:flex;align-items:center;justify-content:center;transition:background .15s;}
+.nav .lab{font-size:9.5px;font-weight:500;color:#A9BCC9;white-space:nowrap;}
+.nav button.on .lab{font-weight:700;}
+.badge{position:absolute;top:-5px;right:-7px;min-width:15px;height:15px;padding:0 3px;border-radius:99px;color:#fff;font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;}
+.loading{height:100vh;display:flex;align-items:center;justify-content:center;color:var(--sub);}
+svg{display:block;}
 </style>
 </head>
 <body>
-<div id="root"></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.383.0/umd/lucide.min.js"></script>
+<div id="app"><div class="loading">読み込み中…</div></div>
 <script>
-// localStorage wrapper matching window.storage API
-window.storage = {
-  get: async (key) => {
-    try { const v = localStorage.getItem(key); return v ? {key, value:v} : null; } catch(e){ return null; }
-  },
-  set: async (key, value) => {
-    try { localStorage.setItem(key, value); return {key, value}; } catch(e){ return null; }
-  },
-  delete: async (key) => {
-    try { localStorage.removeItem(key); return {key, deleted:true}; } catch(e){ return null; }
-  },
-  list: async (prefix) => {
-    try {
-      const keys = Object.keys(localStorage).filter(k => !prefix || k.startsWith(prefix));
-      return {keys, prefix};
-    } catch(e){ return {keys:[]}; }
-  }
+/* ============ data layer ============ */
+var STORAGE='kikoku_planner_v2', STORAGE_V1='kikoku_planner_v1';
+function freshEmpty(){return{trip:{start:'',end:''},shopping:{before:[],after:[],store:[]},souvenir:{japan:[],india:[]},people:[],places:[],food:[],todo:[]};}
+function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
+function lsSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
+function loadAll(){
+  var raw=lsGet(STORAGE);
+  if(raw){try{var p=JSON.parse(raw);return{current:Object.assign(freshEmpty(),p.current||{}),archives:(p.archives||[]).map(function(a){return{id:a.id,archivedAt:a.archivedAt,data:Object.assign(freshEmpty(),a.data)};})};}catch(e){}}
+  var v1=lsGet(STORAGE_V1);
+  if(v1){try{return{current:Object.assign(freshEmpty(),JSON.parse(v1)),archives:[]};}catch(e){}}
+  return{current:freshEmpty(),archives:[]};
+}
+function saveAll(){lsSet(STORAGE,JSON.stringify(store));}
+var store=loadAll();
+
+/* ============ state ============ */
+var ST={viewing:null,active:'shopping',shopTab:'before',souvTab:'japan',editTrip:false,confirmEnd:false,openItems:{}};
+
+/* ============ helpers ============ */
+var C={sky:'#4FA3D9',skySoft:'#E4F2FB',coral:'#F0876C',coralSoft:'#FDEDE6',mint:'#54B393',mintSoft:'#E5F5EE',lav:'#9C88CC',lavSoft:'#F0EBF9',sub:'#859DB0',ink:'#27415A',line:'#DFEDF6'};
+function softOf(a){return a===C.sky?C.skySoft:a===C.coral?C.coralSoft:a===C.mint?C.mintSoft:C.lavSoft;}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function pad(n){return(''+n).padStart(2,'0');}
+function esc(s){return(''+(s==null?'':s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function isoNextDay(iso){var d=new Date(iso+'T00:00:00');d.setDate(d.getDate()+1);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function daysFromToday(iso){var t0=new Date();t0.setHours(0,0,0,0);var t=new Date(iso+'T00:00:00');return Math.round((t-t0)/86400000);}
+function fmtJP(iso){if(!iso)return'';var d=new Date(iso+'T00:00:00');var w=['日','月','火','水','木','金','土'][d.getDay()];return(d.getMonth()+1)+'月'+d.getDate()+'日('+w+')';}
+function fmtRange(t){if(!t||(!t.start&&!t.end))return'日付未設定';var y=t.start?new Date(t.start+'T00:00:00').getFullYear()+'年 ':'';return y+fmtJP(t.start)+(t.end?' 〜 '+fmtJP(t.end):'');}
+function gcalDates(date,time){var d=date.replace(/-/g,'');if(time){var p2=time.split(':'),h=+p2[0],m=+p2[1],eh=h+1,ed=date;if(eh>23){eh-=24;ed=isoNextDay(date);}return d+'T'+pad(h)+pad(m)+'00/'+ed.replace(/-/g,'')+'T'+pad(eh)+pad(m)+'00';}return d+'/'+isoNextDay(date).replace(/-/g,'');}
+function gcalLink(it){var p=[];p.push('action=TEMPLATE');p.push('text='+encodeURIComponent(it.title||''));if(it.date)p.push('dates='+gcalDates(it.date,it.time));if(it.note)p.push('details='+encodeURIComponent(it.note));if(it.location)p.push('location='+encodeURIComponent(it.location));return'https://calendar.google.com/calendar/render?'+p.join('&');}
+
+/* ICS */
+function icsEsc(s){return(''+(s||'')).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');}
+function buildICS(evs){var now=new Date();var st=now.getUTCFullYear()+pad(now.getUTCMonth()+1)+pad(now.getUTCDate())+'T'+pad(now.getUTCHours())+pad(now.getUTCMinutes())+'00Z';var L=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//kikoku//JP','CALSCALE:GREGORIAN'];evs.forEach(function(ev){L.push('BEGIN:VEVENT');L.push('UID:'+ev.id+'@kikoku');L.push('DTSTAMP:'+st);var d=ev.date.replace(/-/g,'');if(ev.time){var p2=ev.time.split(':'),h=+p2[0],m=+p2[1],eh=h+1,ed=ev.date;if(eh>23){eh-=24;ed=isoNextDay(ev.date);}L.push('DTSTART:'+d+'T'+pad(h)+pad(m)+'00');L.push('DTEND:'+ed.replace(/-/g,'')+'T'+pad(eh)+pad(m)+'00');}else{L.push('DTSTART;VALUE=DATE:'+d);L.push('DTEND;VALUE=DATE:'+isoNextDay(ev.date).replace(/-/g,''));}L.push('SUMMARY:'+icsEsc(ev.title));if(ev.location)L.push('LOCATION:'+icsEsc(ev.location));if(ev.note)L.push('DESCRIPTION:'+icsEsc(ev.note));L.push('END:VEVENT');});L.push('END:VCALENDAR');return L.join('\r\n');}
+function downloadICS(evs){var blob=new Blob([buildICS(evs)],{type:'text/calendar;charset=utf-8'});var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='trip-to-japan.ics';document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(function(){URL.revokeObjectURL(url);},5000);}
+
+/* ============ icons (inline svg) ============ */
+function ic(name,size,color,sw){size=size||20;color=color||'currentColor';sw=sw||2;var P={
+  ShoppingBag:'<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>',
+  Gift:'<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8M16.5 8a2.5 2.5 0 0 0 0-5C9 3 12 8 12 8"/>',
+  Users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+  MapPin:'<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  Utensils:'<path d="M3 2v7c0 1.1.9 2 2 2h0a2 2 0 0 0 2-2V2M7 2v20M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>',
+  ClipboardList:'<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4M12 16h4M8 11h.01M8 16h.01"/>',
+  CalendarDays:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/>',
+  Plus:'<path d="M12 5v14M5 12h14"/>',
+  Check:'<path d="M20 6 9 17l-5-5"/>',
+  Trash2:'<path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/>',
+  CalendarPlus:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 14v4M10 16h4"/>',
+  ChevronDown:'<path d="m6 9 6 6 6-6"/>',
+  ChevronRight:'<path d="m9 18 6-6-6-6"/>',
+  Plane:'<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
+  Download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+  Archive:'<rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4"/>',
+  ArrowLeft:'<path d="M19 12H5M12 19l-7-7 7-7"/>'
 };
-</script>
-<script>
-// lucide shim: map named imports to window.lucide
-const {ICON_NAMES} = window._appConfig_ = {};
-</script>
-<script type="text/babel" data-presets="react">
-const {ShoppingBag,Gift,Users,MapPin,Utensils,CalendarDays,ClipboardList,Plus,Trash2,CalendarPlus,ChevronDown,ChevronRight,Plane,Check,Download,Archive,ArrowLeft} = lucide;
+return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="'+color+'" stroke-width="'+sw+'" stroke-linecap="round" stroke-linejoin="round">'+(P[name]||'')+'</svg>';}
 
-/* ---------- palette: 搭乗券スカイブルー × 夕焼けコーラル ---------- */
-const C = {
-  bg: '#F3F8FC',
-  card: '#FFFFFF',
-  ink: '#27415A',
-  sub: '#859DB0',
-  line: '#DFEDF6',
-  sky: '#4FA3D9',
-  skySoft: '#E4F2FB',
-  coral: '#F0876C',
-  coralSoft: '#FDEDE6',
-  coralPale: '#F4CDBB',
-  mint: '#54B393',
-  mintSoft: '#E5F5EE',
-  lav: '#9C88CC',
-  lavSoft: '#F0EBF9',
-  done: '#54B393',
-};
-const softOf = (accent) =>
-  accent === C.sky ? C.skySoft : accent === C.coral ? C.coralSoft : accent === C.mint ? C.mintSoft : C.lavSoft;
-
-const DISPLAY = '"Hiragino Mincho ProN","Yu Mincho",YuMincho,"Noto Serif JP",Georgia,serif';
-const BODY = '"Hiragino Kaku Gothic ProN","Yu Gothic","Noto Sans JP",system-ui,sans-serif';
-
-const STORAGE_V2 = 'kikoku_planner_v2';
-const STORAGE_V1 = 'kikoku_planner_v1';
-
-const EMPTY = {
-  trip: { start: '', end: '' },
-  shopping: { before: [], after: [], store: [] },
-  souvenir: { japan: [], india: [] },
-  people: [],
-  places: [],
-  food: [],
-  todo: [],
-};
-const freshEmpty = () => JSON.parse(JSON.stringify(EMPTY));
-
-/* ---------- helpers ---------- */
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-const pad = (n) => String(n).padStart(2, '0');
-
-function isoNextDay(iso) {
-  const d = new Date(iso + 'T00:00:00');
-  d.setDate(d.getDate() + 1);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-function daysFromToday(iso) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const t = new Date(iso + 'T00:00:00');
-  return Math.round((t - today) / 86400000);
-}
-function fmtJP(iso) {
-  if (!iso) return '';
-  const d = new Date(iso + 'T00:00:00');
-  const w = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
-  return `${d.getMonth() + 1}月${d.getDate()}日(${w})`;
-}
-function fmtRange(trip) {
-  if (!trip?.start && !trip?.end) return '日付未設定';
-  const y = trip.start ? new Date(trip.start + 'T00:00:00').getFullYear() + '年 ' : '';
-  return `${y}${fmtJP(trip.start)}${trip.end ? ' 〜 ' + fmtJP(trip.end) : ''}`;
-}
-function endTimeOf(date, time) {
-  const [h] = time.split(':').map(Number);
-  let eh = h + 1, endDate = date;
-  if (eh > 23) { eh -= 24; endDate = isoNextDay(date); }
-  return { endDate, eh };
-}
-function gcalDates(date, time) {
-  const d = date.replaceAll('-', '');
-  if (time) {
-    const [h, m] = time.split(':').map(Number);
-    const { endDate, eh } = endTimeOf(date, time);
-    return `${d}T${pad(h)}${pad(m)}00/${endDate.replaceAll('-', '')}T${pad(eh)}${pad(m)}00`;
-  }
-  return `${d}/${isoNextDay(date).replaceAll('-', '')}`;
-}
-function gcalLink(item) {
-  const p = new URLSearchParams();
-  p.set('action', 'TEMPLATE');
-  p.set('text', item.title || '');
-  if (item.date) p.set('dates', gcalDates(item.date, item.time));
-  if (item.note) p.set('details', item.note);
-  if (item.location) p.set('location', item.location);
-  return 'https://calendar.google.com/calendar/render?' + p.toString();
-}
-
-/* ---------- ICS export ---------- */
-function icsEscape(s) {
-  return String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
-}
-function buildICS(events) {
-  const now = new Date();
-  const stamp = `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}T${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}00Z`;
-  const L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//kikoku-planner//JP', 'CALSCALE:GREGORIAN'];
-  events.forEach((ev) => {
-    L.push('BEGIN:VEVENT');
-    L.push('UID:' + ev.id + '@kikoku-planner');
-    L.push('DTSTAMP:' + stamp);
-    const d = ev.date.replaceAll('-', '');
-    if (ev.time) {
-      const [h, m] = ev.time.split(':').map(Number);
-      const { endDate, eh } = endTimeOf(ev.date, ev.time);
-      L.push(`DTSTART:${d}T${pad(h)}${pad(m)}00`);
-      L.push(`DTEND:${endDate.replaceAll('-', '')}T${pad(eh)}${pad(m)}00`);
-    } else {
-      L.push('DTSTART;VALUE=DATE:' + d);
-      L.push('DTEND;VALUE=DATE:' + isoNextDay(ev.date).replaceAll('-', ''));
-    }
-    L.push('SUMMARY:' + icsEscape(ev.title));
-    if (ev.location) L.push('LOCATION:' + icsEscape(ev.location));
-    if (ev.note) L.push('DESCRIPTION:' + icsEscape(ev.note));
-    L.push('END:VEVENT');
-  });
-  L.push('END:VCALENDAR');
-  return L.join('\r\n');
-}
-function downloadICS(events) {
-  const blob = new Blob([buildICS(events)], { type: 'text/calendar;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'trip-to-japan.ics';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
-}
-
-/* ---------- storage ---------- */
-async function loadAll() {
-  try {
-    const r = await window.storage.get(STORAGE_V2);
-    if (r && r.value) {
-      const p = JSON.parse(r.value);
-      return {
-        current: { ...freshEmpty(), ...(p.current || {}) },
-        archives: (p.archives || []).map((a) => ({ ...a, data: { ...freshEmpty(), ...a.data } })),
-      };
-    }
-  } catch (e) { /* not found */ }
-  try {
-    const r = await window.storage.get(STORAGE_V1);
-    if (r && r.value) return { current: { ...freshEmpty(), ...JSON.parse(r.value) }, archives: [] };
-  } catch (e) { /* not found */ }
-  return null;
-}
-async function saveAll(store) {
-  try { await window.storage.set(STORAGE_V2, JSON.stringify(store)); } catch (e) { /* ignore */ }
-}
-
-/* ---------- sections meta ---------- */
-const SECTIONS = [
-  { key: 'shopping', label: '買い物', icon: ShoppingBag, accent: C.sky },
-  { key: 'souvenir', label: 'お土産', icon: Gift, accent: C.coral },
-  { key: 'people', label: '会う人', icon: Users, accent: C.sky },
-  { key: 'places', label: '場所', icon: MapPin, accent: C.coral },
-  { key: 'food', label: '食べる', icon: Utensils, accent: C.mint },
-  { key: 'todo', label: 'ToDo', icon: ClipboardList, accent: C.lav },
-  { key: 'timeline', label: '予定', icon: CalendarDays, accent: C.coral },
+/* ============ sections meta ============ */
+var SECTIONS=[
+  {key:'shopping',label:'買い物',icon:'ShoppingBag',accent:C.sky},
+  {key:'souvenir',label:'お土産',icon:'Gift',accent:C.coral},
+  {key:'people',label:'会う人',icon:'Users',accent:C.sky},
+  {key:'places',label:'場所',icon:'MapPin',accent:C.coral},
+  {key:'food',label:'食べる',icon:'Utensils',accent:C.mint},
+  {key:'todo',label:'ToDo',icon:'ClipboardList',accent:C.lav},
+  {key:'timeline',label:'予定',icon:'CalendarDays',accent:C.coral}
 ];
+var SRC={people:{label:'会う',color:C.sky,soft:C.skySoft},places:{label:'場所',color:C.coral,soft:C.coralSoft},food:{label:'食事',color:C.mint,soft:C.mintSoft},todo:{label:'ToDo',color:C.lav,soft:C.lavSoft}};
 
-const SOURCE_META = {
-  people: { label: '会う', color: C.sky, soft: C.skySoft },
-  places: { label: '場所', color: C.coral, soft: C.coralSoft },
-  food: { label: '食事', color: C.mint, soft: C.mintSoft },
-  todo: { label: 'ToDo', color: C.lav, soft: C.lavSoft },
-};
+/* ============ data access ============ */
+function curData(){return ST.viewing?(store.archives.filter(function(a){return a.id===ST.viewing;})[0]||{data:freshEmpty()}).data:store.current;}
+function isArch(){return!!ST.viewing;}
+function getList(sec,sub){var d=curData();return sub?d[sec][sub]:d[sec];}
+function addItem(sec,sub,item,def){var L=getList(sec,sub);L.push(Object.assign({id:uid(),done:false,note:''},def||{},item));saveAll();render();}
+function toggleItem(sec,sub,id){getList(sec,sub).forEach(function(x){if(x.id===id)x.done=!x.done;});saveAll();render();}
+function updItem(sec,sub,id,patch){getList(sec,sub).forEach(function(x){if(x.id===id)Object.assign(x,patch);});saveAll();}
+function delItem(sec,sub,id){var d=curData();var L=sub?d[sec][sub]:d[sec];var i=L.findIndex(function(x){return x.id===id;});if(i>=0)L.splice(i,1);saveAll();render();}
+function remaining(sec,sub){return getList(sec,sub).filter(function(x){return!x.done;}).length;}
 
-const cardShadow = '0 2px 10px rgba(86, 137, 175, 0.07)';
+function getEvents(){var evs=[];['people','places','food','todo'].forEach(function(sec){(curData()[sec]||[]).forEach(function(it){if(it.date)evs.push(Object.assign({},it,{sec:sec}));});});evs.sort(function(a,b){return(a.date+'T'+(a.time||'00:00')).localeCompare(b.date+'T'+(b.time||'00:00'));});return evs;}
+function navCount(sec){if(sec==='shopping')return remaining('shopping','before')+remaining('shopping','after')+remaining('shopping','store');if(sec==='souvenir')return remaining('souvenir','japan')+remaining('souvenir','india');if(sec==='timeline')return getEvents().filter(function(e){return!e.done&&daysFromToday(e.date)>=0;}).length;return remaining(sec,null);}
 
-/* ---------- small UI bits ---------- */
-function Segmented({ tabs, value, onChange }) {
-  return (
-    <div style={{ display: 'flex', gap: 4, background: '#fff', border: `1px solid ${C.line}`, borderRadius: 13, padding: 4, boxShadow: cardShadow }}>
-      {tabs.map((t) => {
-        const on = value === t.key;
-        return (
-          <button
-            key={t.key}
-            onClick={() => onChange(t.key)}
-            style={{
-              flex: 1, padding: '9px 4px', borderRadius: 10, border: 'none', cursor: 'pointer',
-              fontFamily: BODY, fontSize: 12.5, fontWeight: on ? 700 : 500,
-              color: on ? '#fff' : C.sub, background: on ? (t.color || C.sky) : 'transparent',
-              transition: 'all .15s',
-            }}
-          >
-            {t.label}
-          </button>
-        );
-      })}
-    </div>
-  );
+/* ============ render ============ */
+var app=document.getElementById('app');
+
+function render(){
+  var d=curData(),arch=isArch();
+  app.innerHTML=headerHTML(d,arch)+'<div class="main" id="main">'+mainHTML(d,arch)+'</div>'+navHTML();
+  bind();
 }
 
-function ItemRow({ item, accent, onToggle, onUpdate, onDelete, showDate, showTime, showLocation, showCalendar, showPrice, currency }) {
-  const [open, setOpen] = useState(false);
-  const inputStyle = {
-    width: '100%', boxSizing: 'border-box', padding: '9px 10px', borderRadius: 10,
-    border: `1px solid ${C.line}`, fontFamily: BODY, fontSize: 13.5, color: C.ink,
-    background: C.bg, outline: 'none',
-  };
-  const subBits = [];
-  if (item.date) subBits.push(fmtJP(item.date) + (item.time ? ` ${item.time}` : ''));
-  if (item.location) subBits.push(item.location);
-  if (showPrice && item.price) subBits.push(`${currency}${Number(item.price).toLocaleString()}`);
-  return (
-    <div style={{
-      background: C.card, border: `1px solid ${C.line}`, borderLeft: `4px solid ${item.done ? '#CFE0DA' : accent}`,
-      borderRadius: 15, marginBottom: 9, overflow: 'hidden', boxShadow: cardShadow,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '12px 12px' }}>
-        <button
-          onClick={onToggle}
-          aria-label="完了"
-          style={{
-            flexShrink: 0, width: 24, height: 24, borderRadius: 8, cursor: 'pointer',
-            border: `2px solid ${item.done ? C.done : '#CBDEEA'}`,
-            background: item.done ? C.done : 'transparent',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
-            transition: 'all .15s',
-          }}
-        >
-          {item.done && <Check size={14} color="#fff" strokeWidth={3} />}
-        </button>
-
-        <button
-          onClick={() => setOpen((o) => !o)}
-          style={{ flex: 1, textAlign: 'left', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, minWidth: 0 }}
-        >
-          {item.recipient ? (
-            <span style={{
-              display: 'inline-block', fontSize: 11, fontWeight: 700, color: accent,
-              background: softOf(accent),
-              padding: '1px 8px', borderRadius: 99, marginRight: 7, fontFamily: BODY,
-            }}>{item.recipient}</span>
-          ) : null}
-          <span style={{
-            fontFamily: BODY, fontSize: 14.5, color: item.done ? C.sub : C.ink,
-            textDecoration: item.done ? 'line-through' : 'none', wordBreak: 'break-word',
-          }}>{item.title}</span>
-          {subBits.length > 0 && (
-            <div style={{ marginTop: 3, fontSize: 11.5, color: C.sub, fontFamily: BODY }}>
-              {subBits.join(' · ')}
-            </div>
-          )}
-        </button>
-
-        <ChevronDown
-          size={18} color={C.sub}
-          style={{ flexShrink: 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}
-        />
-      </div>
-
-      {open && (
-        <div style={{ padding: '4px 12px 13px', display: 'grid', gap: 9, borderTop: `1px dashed ${C.coralPale}` }}>
-          <input
-            style={{ ...inputStyle, marginTop: 9, fontWeight: 700 }}
-            placeholder="名前・内容"
-            value={item.title || ''}
-            onChange={(e) => onUpdate({ title: e.target.value })}
-          />
-          <textarea
-            placeholder="メモ"
-            value={item.note || ''}
-            onChange={(e) => onUpdate({ note: e.target.value })}
-            rows={2}
-            style={{ ...inputStyle, resize: 'vertical' }}
-          />
-          {item.recipient !== undefined && (
-            <input style={inputStyle} placeholder="誰に" value={item.recipient || ''} onChange={(e) => onUpdate({ recipient: e.target.value })} />
-          )}
-          {showPrice && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontFamily: BODY, fontSize: 14, color: C.sub, fontWeight: 700 }}>{currency}</span>
-              <input
-                type="number" inputMode="numeric" min="0" placeholder="金額（予算/実額）"
-                style={{ ...inputStyle, flex: 1 }}
-                value={item.price || ''}
-                onChange={(e) => onUpdate({ price: e.target.value })}
-              />
-            </div>
-          )}
-          {showLocation && (
-            <input style={inputStyle} placeholder="場所・お店" value={item.location || ''} onChange={(e) => onUpdate({ location: e.target.value })} />
-          )}
-          {showDate && (
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input type="date" style={{ ...inputStyle, flex: 1 }} value={item.date || ''} onChange={(e) => onUpdate({ date: e.target.value })} />
-              {showTime && (
-                <input type="time" style={{ ...inputStyle, width: 110 }} value={item.time || ''} onChange={(e) => onUpdate({ time: e.target.value })} />
-              )}
-            </div>
-          )}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 2 }}>
-            {showCalendar && item.date ? (
-              <a
-                href={gcalLink(item)} target="_blank" rel="noopener noreferrer"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none',
-                  fontFamily: BODY, fontSize: 12.5, fontWeight: 700, color: '#fff',
-                  background: accent, padding: '8px 13px', borderRadius: 99,
-                }}
-              >
-                <CalendarPlus size={14} /> カレンダーに追加
-              </a>
-            ) : <span />}
-            <button
-              onClick={onDelete}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5, border: 'none', cursor: 'pointer',
-                background: 'transparent', color: '#C9776B', fontFamily: BODY, fontSize: 12.5, fontWeight: 600, padding: '8px 6px',
-              }}
-            >
-              <Trash2 size={14} /> 削除
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AddBar({ fields, accent, onAdd }) {
-  const [vals, setVals] = useState(() => Object.fromEntries(fields.map((f) => [f.key, ''])));
-  const main = fields[fields.length - 1].key;
-  const submit = () => {
-    if (!vals[main]?.trim()) return;
-    onAdd({ ...vals });
-    setVals(Object.fromEntries(fields.map((f) => [f.key, ''])));
-  };
-  return (
-    <div style={{ display: 'flex', gap: 7, marginBottom: 15 }}>
-      {fields.map((f) => (
-        <input
-          key={f.key}
-          value={vals[f.key]}
-          placeholder={f.ph}
-          onChange={(e) => setVals((v) => ({ ...v, [f.key]: e.target.value }))}
-          onKeyDown={(e) => e.key === 'Enter' && submit()}
-          style={{
-            flex: f.flex || 1, minWidth: 0, boxSizing: 'border-box', padding: '12px 14px',
-            borderRadius: 13, border: `1.5px dashed ${C.coralPale}`, fontFamily: BODY, fontSize: 14,
-            color: C.ink, background: '#FFFDFB', outline: 'none',
-          }}
-        />
-      ))}
-      <button
-        onClick={submit}
-        aria-label="追加"
-        style={{
-          flexShrink: 0, width: 47, borderRadius: 13, border: 'none', cursor: 'pointer',
-          background: softOf(accent), color: accent, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}
-      >
-        <Plus size={21} strokeWidth={2.6} />
-      </button>
-    </div>
-  );
-}
-
-function Empty({ text }) {
-  return (
-    <div style={{ textAlign: 'center', padding: '44px 20px', color: C.sub, fontFamily: BODY, fontSize: 13.5, lineHeight: 1.8, whiteSpace: 'pre-line' }}>
-      <div style={{ fontSize: 11, letterSpacing: 3, color: C.coralPale, marginBottom: 10 }}>· · ✈ · ·</div>
-      {text}
-    </div>
-  );
-}
-
-function TotalBar({ currency, total, remaining, label }) {
-  return (
-    <div style={{
-      display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-      background: 'linear-gradient(120deg, #FFF8F4, #FFFDFB)', border: `1px solid ${C.coralSoft}`,
-      borderRadius: 13, padding: '11px 15px', marginBottom: 13, boxShadow: cardShadow,
-    }}>
-      <div style={{ fontFamily: BODY, fontSize: 12, color: C.sub }}>{label}</div>
-      <div style={{ fontFamily: BODY }}>
-        <span style={{ fontSize: 18, fontWeight: 700, color: C.ink }}>{currency}{total.toLocaleString()}</span>
-        {remaining > 0 && (
-          <span style={{ fontSize: 11.5, color: C.coral, marginLeft: 8, fontWeight: 600 }}>未購入 {currency}{remaining.toLocaleString()}</span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ---------- main ---------- */
-function App() {
-  const [store, setStore] = useState({ current: freshEmpty(), archives: [] });
-  const [loading, setLoading] = useState(true);
-  const [viewing, setViewing] = useState(null);
-  const [active, setActive] = useState('shopping');
-  const [shopTab, setShopTab] = useState('before');
-  const [souvTab, setSouvTab] = useState('japan');
-  const [editTrip, setEditTrip] = useState(false);
-  const [confirmEnd, setConfirmEnd] = useState(false);
-  const loaded = useRef(false);
-
-  useEffect(() => {
-    loadAll().then((s) => {
-      if (s) setStore(s);
-      loaded.current = true;
-      setLoading(false);
+function headerHTML(d,arch){
+  var eyebrow='PLAN YOUR TRIP HOME',heroBig='帰国日を設定',heroSmall='タップして予定を入力';
+  if(arch){eyebrow='TRAVEL MEMORIES';heroBig='<span style="font-size:18px">'+esc(fmtRange(d.trip))+'</span>';heroSmall='過去の帰国の記録';}
+  else if(d.trip.start){
+    var ds=daysFromToday(d.trip.start),de=d.trip.end?daysFromToday(d.trip.end):null;
+    if(ds>0){eyebrow='JAPAN BOUND · BOARDING SOON';heroBig='あと <span class="n">'+ds+'</span> 日';heroSmall=fmtJP(d.trip.start)+(d.trip.end?' 〜 '+fmtJP(d.trip.end):'')+' · DEL ✈ JPN';}
+    else if(ds===0){eyebrow='DEPARTURE DAY · HAVE A NICE FLIGHT';heroBig='今日、<span class="n">帰国</span>';heroSmall=fmtJP(d.trip.start)+' · DEL ✈ JPN';}
+    else if(de!==null&&de>=0){eyebrow='NOW IN JAPAN · ENJOY YOUR STAY';heroBig='帰国中 <span class="n" style="font-size:17px">あと'+de+'日</span>';heroSmall=fmtJP(d.trip.end)+'まで';}
+    else{eyebrow='TRIP COMPLETED · SEE YOU NEXT TIME';heroBig='おかえりなさい';heroSmall=fmtJP(d.trip.start)+(d.trip.end?' 〜 '+fmtJP(d.trip.end):'');}
+  }
+  var h='<div class="hdr'+(arch?' arch':'')+'">';
+  if(arch){h+='<div class="archBar"><button class="backBtn" id="backBtn">'+ic('ArrowLeft',14,'#fff')+' 現在のプランに戻る</button><span class="lbl">過去の記録を表示中</span></div>';}
+  h+='<button class="hdrTop" id="hdrTop"><div class="hdrIcon">'+ic(arch?'Archive':'Plane',arch?20:22,arch?C.coral:C.sky)+'</div>'
+    +'<div style="flex:1;min-width:0"><div class="eyebrow">'+eyebrow+'</div><div class="heroBig">'+heroBig+'</div><div class="heroSmall">'+esc(heroSmall)+'</div></div>'
+    +'<span class="chev'+(ST.editTrip?' open':'')+'">'+ic('ChevronDown',18,'#A99A92')+'</span></button>';
+  h+='<div class="tripPanel'+(ST.editTrip?' open':'')+'" id="tripPanel">';
+  if(!arch){
+    h+='<div class="tripRow"><label>帰国日<input type="date" class="din" id="tripStart" value="'+esc(d.trip.start)+'"></label>'
+      +'<label>戻る日<input type="date" class="din" id="tripEnd" value="'+esc(d.trip.end)+'"></label></div>';
+    if(!ST.confirmEnd){h+='<button class="endBtn" id="endBtn">'+ic('Archive',15,C.coral)+' この帰国を終了して記録に保存</button>';}
+    else{h+='<div class="confirmBox"><p>現在のリストをすべて過去の記録に移し、新しい空のプランを開始します。記録はいつでも参照できます。</p><div class="cfRow"><button class="yes" id="endYes">終了して保存</button><button id="endNo">やめる</button></div></div>';}
+  }
+  if(store.archives.length){
+    h+='<div><div class="archHead">PAST TRIPS</div>';
+    store.archives.forEach(function(a){
+      var cnt=['people','places','food','todo'].reduce(function(n,k){return n+(a.data[k]||[]).length;},0)+['before','after','store'].reduce(function(n,k){return n+a.data.shopping[k].length;},0)+a.data.souvenir.japan.length+a.data.souvenir.india.length;
+      h+='<button class="archItem'+(ST.viewing===a.id?' sel':'')+'" data-arch="'+a.id+'">'+ic('Archive',16,C.coral)+'<div class="t"><div class="t1">'+esc(fmtRange(a.data.trip))+'</div><div class="t2">全'+cnt+'項目</div></div>'+ic('ChevronRight',16,'#A9988F')+'</button>';
     });
-  }, []);
+    h+='</div>';
+  }
+  h+='</div><div class="perf"></div></div>';
+  return h;
+}
 
-  useEffect(() => {
-    if (loaded.current) saveAll(store);
-  }, [store]);
+function mainHTML(d,arch){
+  if(ST.active==='shopping')return shoppingHTML(d,arch);
+  if(ST.active==='souvenir')return souvenirHTML(d,arch);
+  if(ST.active==='people')return listHTML(d,arch,'people',C.sky,'会う人の名前','会いたい人を追加。\n日付を入れるとGoogleカレンダーに登録できます。',{date:true,time:true,loc:true,cal:true});
+  if(ST.active==='places')return listHTML(d,arch,'places',C.coral,'行きたい場所','行きたい場所を追加。\n日付を入れるとカレンダーに登録できます。',{date:true,time:true,loc:true,cal:true});
+  if(ST.active==='food')return listHTML(d,arch,'food',C.mint,'食べたいもの','食べたいものを追加。\n予約した日を入れるとカレンダーに登録できます。',{date:true,time:true,loc:true,cal:true});
+  if(ST.active==='todo')return listHTML(d,arch,'todo',C.lav,'やること','やることを追加。\n（健康診断、通販のキャンセル、役所手続き、銀行など）\n日付を入れるとカレンダーと予定一覧にも載ります。',{date:true,time:true,loc:true,cal:true});
+  if(ST.active==='timeline')return timelineHTML(d,arch);
+  return'';
+}
 
-  const archive = viewing ? store.archives.find((a) => a.id === viewing) : null;
-  const data = archive ? archive.data : store.current;
+function emptyHTML(t){return'<div class="empty"><div class="dots">· · ✈ · ·</div>'+esc(t)+'</div>';}
 
-  const setData = (updater) =>
-    setStore((s) => {
-      if (!viewing) return { ...s, current: typeof updater === 'function' ? updater(s.current) : updater };
-      return {
-        ...s,
-        archives: s.archives.map((a) =>
-          a.id === viewing ? { ...a, data: typeof updater === 'function' ? updater(a.data) : updater } : a
-        ),
-      };
+function segHTML(tabs,val,attr){var h='<div class="seg">';tabs.forEach(function(t){var on=val===t.key;h+='<button class="'+(on?'on':'')+'" '+attr+'="'+t.key+'"'+(on?' style="background:'+t.color+'"':'')+'>'+t.label+'</button>';});return h+'</div>';}
+
+function addbarHTML(fields,accent){var h='<div class="addbar" data-add="1">';fields.forEach(function(f){h+='<input data-f="'+f.key+'" placeholder="'+f.ph+'"'+(f.flex?' style="flex:'+f.flex+'"':'')+'>';});h+='<button class="addBtn" style="background:'+softOf(accent)+'" data-addbtn="1">'+ic('Plus',21,accent,2.6)+'</button></div>';return h;}
+
+function itemHTML(it,accent,opts){
+  opts=opts||{};var open=ST.openItems[it.id];
+  var subBits=[];
+  if(it.date)subBits.push(fmtJP(it.date)+(it.time?' '+it.time:''));
+  if(it.location)subBits.push(it.location);
+  if(opts.price&&it.price)subBits.push(opts.cur+Number(it.price).toLocaleString());
+  var h='<div class="card'+(it.done?' done':'')+'" style="border-left-color:'+(it.done?'#CFE0DA':accent)+'">';
+  h+='<div class="cardTop"><button class="chk'+(it.done?' on':'')+'" data-tog="'+it.id+'">'+(it.done?ic('Check',14,'#fff',3):'')+'</button>';
+  h+='<button class="cardMain" data-open="'+it.id+'">';
+  if(it.recipient!==undefined&&it.recipient)h+='<span class="recip" style="color:'+accent+';background:'+softOf(accent)+'">'+esc(it.recipient)+'</span>';
+  h+='<span class="ttl'+(it.done?' done':'')+'">'+esc(it.title)+'</span>';
+  if(subBits.length)h+='<div class="sub">'+esc(subBits.join(' · '))+'</div>';
+  h+='</button><span class="chev'+(open?' open':'')+'">'+ic('ChevronDown',18,C.sub)+'</span></div>';
+  h+='<div class="detail'+(open?' open':'')+'" data-detail="'+it.id+'">';
+  h+='<input class="ti" data-up="title" placeholder="名前・内容" value="'+esc(it.title)+'">';
+  h+='<textarea data-up="note" rows="2" placeholder="メモ">'+esc(it.note||'')+'</textarea>';
+  if(it.recipient!==undefined)h+='<input data-up="recipient" placeholder="誰に" value="'+esc(it.recipient||'')+'">';
+  if(opts.price)h+='<div class="priceRow"><span class="cur">'+opts.cur+'</span><input data-up="price" type="number" inputmode="numeric" min="0" placeholder="金額（予算/実額）" value="'+esc(it.price||'')+'" style="flex:1"></div>';
+  if(opts.loc)h+='<input data-up="location" placeholder="場所・お店" value="'+esc(it.location||'')+'">';
+  if(opts.date){h+='<div class="dateRow"><input class="d" type="date" data-up="date" value="'+esc(it.date||'')+'">';if(opts.time)h+='<input class="t" type="time" data-up="time" value="'+esc(it.time||'')+'">';h+='</div>';}
+  h+='<div class="actRow">';
+  if(opts.cal&&it.date)h+='<a class="calBtn" style="background:'+accent+'" href="'+gcalLink(it)+'" target="_blank" rel="noopener">'+ic('CalendarPlus',14,'#fff')+' カレンダーに追加</a>';else h+='<span></span>';
+  h+='<button class="delBtn" data-del="'+it.id+'">'+ic('Trash2',14,'#C9776B')+' 削除</button>';
+  h+='</div></div></div>';
+  return h;
+}
+
+function shoppingHTML(d,arch){
+  var sub=ST.shopTab;
+  var h=segHTML([{key:'before',label:'帰国前に注文',color:C.sky},{key:'after',label:'帰国後に注文',color:C.sky},{key:'store',label:'お店で購入',color:C.sky}],sub,'data-shoptab');
+  if(!arch)h+=addbarHTML([{key:'title',ph:'買うもの'}],C.sky);
+  var L=d.shopping[sub];
+  if(!L.length)h+=emptyHTML(arch?'この帰国では記録がありません。':sub==='before'?'帰国前にネットで注文しておくものを追加。\n（書籍・コスメ・受け取りたい荷物など）':sub==='after'?'日本から戻る前／戻った後に注文するものを追加。':'日本のお店で直接買うものを追加。');
+  else L.forEach(function(it){h+=itemHTML(it,C.sky,{});});
+  return h;
+}
+
+function souvenirHTML(d,arch){
+  var sub=ST.souvTab,accent=sub==='japan'?C.sky:C.coral,cur=sub==='japan'?'₹':'¥';
+  var h=segHTML([{key:'japan',label:'日本の人へ',color:C.sky},{key:'india',label:'インドの人へ',color:C.coral}],sub,'data-souvtab');
+  var L=d.souvenir[sub];
+  var total=L.reduce(function(s,x){return s+(Number(x.price)||0);},0);
+  var rem=L.filter(function(x){return!x.done;}).reduce(function(s,x){return s+(Number(x.price)||0);},0);
+  if(total>0)h+='<div class="total"><div class="lbl">'+(sub==='japan'?'合計（インドで購入）':'合計（日本で購入）')+'</div><div><span class="v">'+cur+total.toLocaleString()+'</span>'+(rem>0?'<span class="rem">未購入 '+cur+rem.toLocaleString()+'</span>':'')+'</div></div>';
+  if(!arch)h+=addbarHTML([{key:'recipient',ph:'誰に',flex:'0.8'},{key:'title',ph:'何を',flex:'1.4'}],accent);
+  if(!L.length)h+=emptyHTML(arch?'この帰国では記録がありません。':sub==='japan'?'日本で会う人へのお土産（インドの紅茶・スパイス・雑貨など）を追加。\n項目を開くと金額を入力できます。':'インドに戻ってから渡すお土産（日本のお菓子・文具など）を追加。\n項目を開くと金額を入力できます。');
+  else L.forEach(function(it){h+=itemHTML(it,accent,{price:true,cur:cur});});
+  return h;
+}
+
+function listHTML(d,arch,sec,accent,ph,emptyTxt,opts){
+  var h='';
+  if(!arch)h+=addbarHTML([{key:'title',ph:ph}],accent);
+  var L=d[sec];
+  if(!L.length)h+=emptyHTML(arch?'この帰国では記録がありません。':emptyTxt);
+  else L.forEach(function(it){h+=itemHTML(it,accent,opts);});
+  return h;
+}
+
+function timelineHTML(d,arch){
+  var evs=getEvents();var h='';
+  if(evs.length&&!arch){h+='<button class="icsBtn" id="icsBtn">'+ic('Download',16,'#fff')+' 全'+evs.length+'件をカレンダー用ファイルで書き出し</button>';h+='<div class="icsHint">.icsファイルをGoogleカレンダーにインポートすると全件まとめて登録されます</div>';}
+  if(!evs.length){h+=emptyHTML(arch?'この帰国では日付つきの記録がありません。':'日付の入った予定がここに並びます。\n「会う人」「場所」「食べる」「ToDo」で日付を設定してください。');return h;}
+  var dates=[];evs.forEach(function(e){if(dates.indexOf(e.date)<0)dates.push(e.date);});
+  dates.forEach(function(dt){
+    var diff=daysFromToday(dt);
+    var rel=arch?'':diff===0?'今日':diff===1?'明日':diff>1?'あと'+diff+'日':'終了';
+    h+='<div class="tlDay" style="opacity:'+(!arch&&diff<0?'0.55':'1')+'">';
+    h+='<div class="tlHead"><span class="dt">'+fmtJP(dt)+'</span>'+(rel?'<span class="rel'+(diff===0?' today':'')+'">'+rel+'</span>':'')+'</div>';
+    evs.filter(function(e){return e.date===dt;}).forEach(function(e){
+      var m=SRC[e.sec];
+      h+='<div class="tlCard" style="border-left:4px solid '+m.color+'">';
+      h+='<div class="tlTime" style="color:'+(e.time?C.ink:C.sub)+'">'+(e.time||'終日')+'</div>';
+      h+='<div class="tlBody"><div class="tlTtl'+(e.done?' done':'')+'"><span class="tlTag" style="color:'+m.color+';background:'+m.soft+'">'+m.label+'</span>'+esc(e.title)+'</div>';
+      if(e.location)h+='<div class="tlLoc">'+esc(e.location)+'</div>';
+      h+='</div>';
+      if(!arch)h+='<a class="tlCal" style="background:'+m.soft+'" href="'+gcalLink(e)+'" target="_blank" rel="noopener">'+ic('CalendarPlus',16,m.color)+'</a>';
+      h+='</div>';
     });
+    h+='</div>';
+  });
+  return h;
+}
 
-  const getList = (sec, sub) => (sub ? data[sec][sub] : data[sec]);
-  const setList = (sec, sub, list) =>
-    setData((d) => (sub ? { ...d, [sec]: { ...d[sec], [sub]: list } } : { ...d, [sec]: list }));
+function navHTML(){
+  var h='<div class="nav">';
+  SECTIONS.forEach(function(s){
+    var on=ST.active===s.key,cnt=navCount(s.key);
+    h+='<button class="'+(on?'on':'')+'" data-nav="'+s.key+'"><div class="pill" style="background:'+(on?softOf(s.accent):'transparent')+'">'+ic(s.icon,19,on?s.accent:'#A9BCC9',on?2.4:2)+(cnt>0?'<span class="badge" style="background:'+s.accent+'">'+cnt+'</span>':'')+'</div><div class="lab" style="color:'+(on?s.accent:'#A9BCC9')+'">'+s.label+'</div></button>';
+  });
+  return h+'</div>';
+}
 
-  const add = (sec, sub, item, defaults = {}) =>
-    setList(sec, sub, [...getList(sec, sub), { id: uid(), done: false, note: '', ...defaults, ...item }]);
-  const toggle = (sec, sub, id) =>
-    setList(sec, sub, getList(sec, sub).map((x) => (x.id === id ? { ...x, done: !x.done } : x)));
-  const update = (sec, sub, id, patch) =>
-    setList(sec, sub, getList(sec, sub).map((x) => (x.id === id ? { ...x, ...patch } : x)));
-  const remove = (sec, sub, id) =>
-    setList(sec, sub, getList(sec, sub).filter((x) => x.id !== id));
+/* ============ bind events ============ */
+function bind(){
+  var main=document.getElementById('main');
+  var scrollTop=main?main.scrollTop:0;
 
-  const remaining = (sec, sub) => getList(sec, sub).filter((x) => !x.done).length;
-
-  /* timeline events */
-  const events = [];
-  ['people', 'places', 'food', 'todo'].forEach((sec) =>
-    (data[sec] || []).forEach((it) => { if (it.date) events.push({ ...it, sec }); })
-  );
-  events.sort((a, b) => (a.date + 'T' + (a.time || '00:00')).localeCompare(b.date + 'T' + (b.time || '00:00')));
-  const eventDates = [...new Set(events.map((e) => e.date))];
-
-  const navCount = (sec) => {
-    if (sec === 'shopping') return remaining('shopping', 'before') + remaining('shopping', 'after') + remaining('shopping', 'store');
-    if (sec === 'souvenir') return remaining('souvenir', 'japan') + remaining('souvenir', 'india');
-    if (sec === 'timeline') return events.filter((e) => !e.done && daysFromToday(e.date) >= 0).length;
-    return remaining(sec, null);
+  // header
+  var hdrTop=document.getElementById('hdrTop');
+  if(hdrTop)hdrTop.onclick=function(){ST.editTrip=!ST.editTrip;render();};
+  var backBtn=document.getElementById('backBtn');
+  if(backBtn)backBtn.onclick=function(){ST.viewing=null;ST.editTrip=false;ST.active='shopping';render();};
+  var ts=document.getElementById('tripStart');if(ts)ts.onchange=function(){curData().trip.start=ts.value;saveAll();render();};
+  var te=document.getElementById('tripEnd');if(te)te.onchange=function(){curData().trip.end=te.value;saveAll();render();};
+  var endBtn=document.getElementById('endBtn');if(endBtn)endBtn.onclick=function(){ST.confirmEnd=true;render();};
+  var endNo=document.getElementById('endNo');if(endNo)endNo.onclick=function(){ST.confirmEnd=false;render();};
+  var endYes=document.getElementById('endYes');if(endYes)endYes.onclick=function(){
+    store.archives.unshift({id:uid(),archivedAt:new Date().toISOString(),data:JSON.parse(JSON.stringify(store.current))});
+    store.current=freshEmpty();saveAll();ST.confirmEnd=false;ST.editTrip=false;ST.active='shopping';render();
   };
+  Array.prototype.forEach.call(document.querySelectorAll('[data-arch]'),function(b){b.onclick=function(){var id=b.getAttribute('data-arch');ST.viewing=ST.viewing===id?null:id;ST.editTrip=false;ST.active='shopping';render();};});
 
-  /* souvenir totals */
-  const souvCurrency = souvTab === 'japan' ? '₹' : '¥';
-  const souvList = data.souvenir[souvTab];
-  const souvTotal = souvList.reduce((s, x) => s + (Number(x.price) || 0), 0);
-  const souvRemaining = souvList.filter((x) => !x.done).reduce((s, x) => s + (Number(x.price) || 0), 0);
+  // nav
+  Array.prototype.forEach.call(document.querySelectorAll('[data-nav]'),function(b){b.onclick=function(){ST.active=b.getAttribute('data-nav');render();};});
 
-  /* countdown / hero */
-  const { start, end } = data.trip;
-  let eyebrow = 'PLAN YOUR TRIP HOME';
-  let heroNode = <span>帰国日を設定</span>;
-  let heroSmall = 'タップして予定を入力';
-  const route = ' · DEL ✈ JPN';
-  if (archive) {
-    eyebrow = 'TRAVEL MEMORIES';
-    heroNode = <span style={{ fontSize: 18 }}>{fmtRange(data.trip)}</span>;
-    heroSmall = '過去の帰国の記録';
-  } else if (start) {
-    const ds = daysFromToday(start);
-    const de = end ? daysFromToday(end) : null;
-    if (ds > 0) {
-      eyebrow = 'JAPAN BOUND · BOARDING SOON';
-      heroNode = <span>あと <span style={{ color: C.coral }}>{ds}</span> 日</span>;
-      heroSmall = `${fmtJP(start)}${end ? ' 〜 ' + fmtJP(end) : ''}${route}`;
-    } else if (ds === 0) {
-      eyebrow = 'DEPARTURE DAY · HAVE A NICE FLIGHT';
-      heroNode = <span>今日、<span style={{ color: C.coral }}>帰国</span></span>;
-      heroSmall = `${fmtJP(start)}${route}`;
-    } else if (de !== null && de >= 0) {
-      eyebrow = 'NOW IN JAPAN · ENJOY YOUR STAY';
-      heroNode = <span>帰国中 <span style={{ color: C.coral, fontSize: 17 }}>あと{de}日</span></span>;
-      heroSmall = `${fmtJP(end)}まで`;
-    } else {
-      eyebrow = 'TRIP COMPLETED · SEE YOU NEXT TIME';
-      heroNode = <span>おかえりなさい</span>;
-      heroSmall = `${fmtJP(start)}${end ? ' 〜 ' + fmtJP(end) : ''}`;
-    }
+  // sub tabs
+  Array.prototype.forEach.call(document.querySelectorAll('[data-shoptab]'),function(b){b.onclick=function(){ST.shopTab=b.getAttribute('data-shoptab');render();};});
+  Array.prototype.forEach.call(document.querySelectorAll('[data-souvtab]'),function(b){b.onclick=function(){ST.souvTab=b.getAttribute('data-souvtab');render();};});
+
+  // add bar
+  var addbar=document.querySelector('[data-add]');
+  if(addbar){
+    var addBtn=addbar.querySelector('[data-addbtn]');
+    var doAdd=function(){
+      var fs=addbar.querySelectorAll('[data-f]');var obj={};var mainKey;
+      fs.forEach(function(f){obj[f.getAttribute('data-f')]=f.value;mainKey=f.getAttribute('data-f');});
+      if(!obj[mainKey]||!obj[mainKey].trim())return;
+      var sec=ST.active;
+      if(sec==='shopping')addItem('shopping',ST.shopTab,obj);
+      else if(sec==='souvenir')addItem('souvenir',ST.souvTab,obj,{recipient:'',price:''});
+      else if(sec==='people')addItem('people',null,obj,{date:'',time:'',location:''});
+      else if(sec==='places')addItem('places',null,obj,{date:'',time:'',location:''});
+      else if(sec==='food')addItem('food',null,obj,{date:'',time:'',location:''});
+      else if(sec==='todo')addItem('todo',null,obj,{date:'',time:'',location:''});
+    };
+    addBtn.onclick=doAdd;
+    addbar.querySelectorAll('[data-f]').forEach(function(inp){inp.onkeydown=function(e){if(e.key==='Enter')doAdd();};});
   }
 
-  const finishTrip = () => {
-    setStore((s) => ({
-      current: freshEmpty(),
-      archives: [
-        { id: uid(), archivedAt: new Date().toISOString(), data: JSON.parse(JSON.stringify(s.current)) },
-        ...s.archives,
-      ],
-    }));
-    setConfirmEnd(false);
-    setEditTrip(false);
-    setActive('shopping');
-  };
+  // current section/sub for item ops
+  var sec=ST.active, sub=sec==='shopping'?ST.shopTab:sec==='souvenir'?ST.souvTab:null;
 
-  if (loading) {
-    return (
-      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.bg, color: C.sub, fontFamily: BODY }}>
-        読み込み中…
-      </div>
-    );
-  }
+  // toggle / open / delete / update
+  Array.prototype.forEach.call(document.querySelectorAll('[data-tog]'),function(b){b.onclick=function(){toggleItem(sec,sub,b.getAttribute('data-tog'));};});
+  Array.prototype.forEach.call(document.querySelectorAll('[data-open]'),function(b){b.onclick=function(){var id=b.getAttribute('data-open');ST.openItems[id]=!ST.openItems[id];render();};});
+  Array.prototype.forEach.call(document.querySelectorAll('[data-del]'),function(b){b.onclick=function(){delItem(sec,sub,b.getAttribute('data-del'));};});
+  Array.prototype.forEach.call(document.querySelectorAll('[data-detail]'),function(box){
+    var id=box.getAttribute('data-detail');
+    box.querySelectorAll('[data-up]').forEach(function(inp){
+      inp.oninput=function(){var patch={};patch[inp.getAttribute('data-up')]=inp.value;updItem(sec,sub,id,patch);};
+      inp.onchange=function(){var patch={};patch[inp.getAttribute('data-up')]=inp.value;updItem(sec,sub,id,patch);if(inp.getAttribute('data-up')==='date'||inp.getAttribute('data-up')==='time')render();};
+    });
+  });
 
-  const btnSmall = {
-    border: `1px solid ${C.line}`, background: C.card, cursor: 'pointer', borderRadius: 11,
-    fontFamily: BODY, fontSize: 12.5, fontWeight: 700, padding: '10px 12px', color: C.ink,
-  };
-  const dateInput = {
-    width: '100%', boxSizing: 'border-box', marginTop: 4, padding: '9px 10px', borderRadius: 10,
-    border: `1px solid ${C.line}`, fontFamily: BODY, fontSize: 13.5, background: '#fff', color: C.ink, outline: 'none',
-  };
+  // ics
+  var icsBtn=document.getElementById('icsBtn');if(icsBtn)icsBtn.onclick=function(){downloadICS(getEvents());};
 
-  return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: C.bg, fontFamily: BODY, color: C.ink, maxWidth: 520, margin: '0 auto', position: 'relative' }}>
-      {/* ---- header: boarding-pass ---- */}
-      <header style={{
-        flexShrink: 0, position: 'relative',
-        background: archive
-          ? 'linear-gradient(125deg, #FBEFE7 0%, #FDF6F0 50%, #FFE9DB 100%)'
-          : 'linear-gradient(125deg, #D8EDFB 0%, #EAF5FD 32%, #FFE9DB 64%, #FFDCC6 100%)',
-      }}>
-        {archive && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 18px 0' }}>
-            <button
-              onClick={() => { setViewing(null); setEditTrip(false); }}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', cursor: 'pointer',
-                background: C.coral, color: '#fff', borderRadius: 99, padding: '7px 14px',
-                fontFamily: BODY, fontSize: 12.5, fontWeight: 700,
-              }}
-            >
-              <ArrowLeft size={14} /> 現在のプランに戻る
-            </button>
-            <span style={{ fontFamily: BODY, fontSize: 11, color: C.coral, fontWeight: 700 }}>過去の記録を表示中</span>
-          </div>
-        )}
-        <button
-          onClick={() => setEditTrip((v) => !v)}
-          style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', padding: '16px 18px 17px', display: 'flex', alignItems: 'center', gap: 14 }}
-        >
-          <div style={{
-            width: 46, height: 46, borderRadius: 14, background: 'rgba(255,255,255,0.75)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            boxShadow: '0 2px 8px rgba(120,100,90,.10)',
-          }}>
-            {archive ? <Archive size={20} color={C.coral} /> : <Plane size={22} color={C.sky} style={{ transform: 'rotate(-20deg)' }} />}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: BODY, fontSize: 9.5, letterSpacing: 2.2, color: C.coral, fontWeight: 700 }}>{eyebrow}</div>
-            <div style={{ fontFamily: DISPLAY, fontSize: 25, fontWeight: 700, color: C.ink, lineHeight: 1.25, marginTop: 1 }}>{heroNode}</div>
-            <div style={{ fontFamily: BODY, fontSize: 12, color: '#8E7E76', marginTop: 2 }}>{heroSmall}</div>
-          </div>
-          <ChevronDown size={18} color="#A99A92" style={{ transform: editTrip ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
-        </button>
-
-        {editTrip && (
-          <div style={{ padding: '0 18px 18px', display: 'grid', gap: 12 }}>
-            {!archive && (
-              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-                <label style={{ flex: 1, fontSize: 11, color: '#8E7E76', fontWeight: 600 }}>帰国日
-                  <input type="date" value={start} onChange={(e) => setData((d) => ({ ...d, trip: { ...d.trip, start: e.target.value } }))} style={dateInput} />
-                </label>
-                <label style={{ flex: 1, fontSize: 11, color: '#8E7E76', fontWeight: 600 }}>戻る日
-                  <input type="date" value={end} onChange={(e) => setData((d) => ({ ...d, trip: { ...d.trip, end: e.target.value } }))} style={dateInput} />
-                </label>
-              </div>
-            )}
-
-            {!archive && (
-              !confirmEnd ? (
-                <button
-                  onClick={() => setConfirmEnd(true)}
-                  style={{
-                    ...btnSmall, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                    color: C.coral, border: `1.5px dashed ${C.coralPale}`, background: 'rgba(255,255,255,0.8)', borderRadius: 99,
-                  }}
-                >
-                  <Archive size={15} /> この帰国を終了して記録に保存
-                </button>
-              ) : (
-                <div style={{ background: 'rgba(255,255,255,0.85)', borderRadius: 14, padding: '13px 15px' }}>
-                  <div style={{ fontFamily: BODY, fontSize: 12.5, color: C.ink, lineHeight: 1.6, marginBottom: 10 }}>
-                    現在のリストをすべて過去の記録に移し、新しい空のプランを開始します。記録はいつでも参照できます。
-                  </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={finishTrip} style={{ ...btnSmall, flex: 1, background: C.coral, color: '#fff', border: 'none', borderRadius: 99 }}>終了して保存</button>
-                    <button onClick={() => setConfirmEnd(false)} style={{ ...btnSmall, flex: 1, borderRadius: 99 }}>やめる</button>
-                  </div>
-                </div>
-              )
-            )}
-
-            {store.archives.length > 0 && (
-              <div>
-                <div style={{ fontFamily: BODY, fontSize: 9.5, color: '#A9988F', fontWeight: 700, marginBottom: 6, letterSpacing: 2 }}>PAST TRIPS</div>
-                {store.archives.map((a) => {
-                  const cnt = ['people', 'places', 'food', 'todo'].reduce((n, k) => n + (a.data[k] || []).length, 0)
-                    + ['before', 'after', 'store'].reduce((n, k) => n + a.data.shopping[k].length, 0)
-                    + a.data.souvenir.japan.length + a.data.souvenir.india.length;
-                  const isOpen = viewing === a.id;
-                  return (
-                    <button
-                      key={a.id}
-                      onClick={() => { setViewing(isOpen ? null : a.id); setEditTrip(false); setActive('shopping'); }}
-                      style={{
-                        width: '100%', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left',
-                        background: 'rgba(255,255,255,0.85)', border: `1px solid ${isOpen ? C.coral : 'rgba(255,255,255,0.9)'}`,
-                        borderRadius: 13, padding: '11px 14px', marginBottom: 6, cursor: 'pointer',
-                      }}
-                    >
-                      <Archive size={16} color={C.coral} style={{ flexShrink: 0 }} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontFamily: BODY, fontSize: 13.5, fontWeight: 700, color: C.ink }}>{fmtRange(a.data.trip)}</div>
-                        <div style={{ fontFamily: BODY, fontSize: 11, color: '#A9988F', marginTop: 1 }}>全{cnt}項目</div>
-                      </div>
-                      <ChevronRight size={16} color="#A9988F" style={{ flexShrink: 0 }} />
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ticket perforation + notches */}
-        <div style={{ borderBottom: `2px dashed ${C.coralPale}`, position: 'relative' }}>
-          <span style={{ position: 'absolute', left: -10, top: -9, width: 19, height: 19, borderRadius: '50%', background: C.bg }} />
-          <span style={{ position: 'absolute', right: -10, top: -9, width: 19, height: 19, borderRadius: '50%', background: C.bg }} />
-        </div>
-      </header>
-
-      {/* ---- scroll area ---- */}
-      <main style={{ flex: 1, overflowY: 'auto', padding: '17px 16px 90px' }}>
-        {active === 'shopping' && (
-          <>
-            <Segmented
-              value={shopTab} onChange={setShopTab}
-              tabs={[
-                { key: 'before', label: '帰国前に注文', color: C.sky },
-                { key: 'after', label: '帰国後に注文', color: C.sky },
-                { key: 'store', label: 'お店で購入', color: C.sky },
-              ]}
-            />
-            <div style={{ height: 15 }} />
-            {!archive && <AddBar fields={[{ key: 'title', ph: '買うもの' }]} accent={C.sky} onAdd={(it) => add('shopping', shopTab, it)} />}
-            {getList('shopping', shopTab).length === 0
-              ? <Empty text={archive ? 'この帰国では記録がありません。' : shopTab === 'before' ? '帰国前にネットで注文しておくものを追加。\n（書籍・コスメ・受け取りたい荷物など）' : shopTab === 'after' ? '日本から戻る前／戻った後に注文するものを追加。' : '日本のお店で直接買うものを追加。'} />
-              : getList('shopping', shopTab).map((it) => (
-                <ItemRow key={it.id} item={it} accent={C.sky}
-                  onToggle={() => toggle('shopping', shopTab, it.id)}
-                  onUpdate={(p) => update('shopping', shopTab, it.id, p)}
-                  onDelete={() => remove('shopping', shopTab, it.id)} />
-              ))}
-          </>
-        )}
-
-        {active === 'souvenir' && (
-          <>
-            <Segmented
-              value={souvTab} onChange={setSouvTab}
-              tabs={[
-                { key: 'japan', label: '日本の人へ', color: C.sky },
-                { key: 'india', label: 'インドの人へ', color: C.coral },
-              ]}
-            />
-            <div style={{ height: 15 }} />
-            {souvTotal > 0 && (
-              <TotalBar
-                currency={souvCurrency}
-                total={souvTotal}
-                remaining={souvRemaining}
-                label={souvTab === 'japan' ? '合計（インドで購入）' : '合計（日本で購入）'}
-              />
-            )}
-            {!archive && (
-              <AddBar
-                fields={[{ key: 'recipient', ph: '誰に', flex: 0.8 }, { key: 'title', ph: '何を', flex: 1.4 }]}
-                accent={souvTab === 'japan' ? C.sky : C.coral}
-                onAdd={(it) => add('souvenir', souvTab, it, { recipient: '', price: '' })} />
-            )}
-            {souvList.length === 0
-              ? <Empty text={archive ? 'この帰国では記録がありません。' : souvTab === 'japan' ? '日本で会う人へのお土産（インドの紅茶・スパイス・雑貨など）を追加。\n項目を開くと金額を入力できます。' : 'インドに戻ってから渡すお土産（日本のお菓子・文具など）を追加。\n項目を開くと金額を入力できます。'} />
-              : souvList.map((it) => (
-                <ItemRow key={it.id} item={it} accent={souvTab === 'japan' ? C.sky : C.coral}
-                  showPrice currency={souvCurrency}
-                  onToggle={() => toggle('souvenir', souvTab, it.id)}
-                  onUpdate={(p) => update('souvenir', souvTab, it.id, p)}
-                  onDelete={() => remove('souvenir', souvTab, it.id)} />
-              ))}
-          </>
-        )}
-
-        {active === 'people' && (
-          <>
-            {!archive && <AddBar fields={[{ key: 'title', ph: '会う人の名前' }]} accent={C.sky} onAdd={(it) => add('people', null, it, { date: '', time: '', location: '' })} />}
-            {data.people.length === 0
-              ? <Empty text={archive ? 'この帰国では記録がありません。' : '会いたい人を追加。\n日付を入れるとGoogleカレンダーに登録できます。'} />
-              : data.people.map((it) => (
-                <ItemRow key={it.id} item={it} accent={C.sky} showDate showTime showLocation showCalendar
-                  onToggle={() => toggle('people', null, it.id)}
-                  onUpdate={(p) => update('people', null, it.id, p)}
-                  onDelete={() => remove('people', null, it.id)} />
-              ))}
-          </>
-        )}
-
-        {active === 'places' && (
-          <>
-            {!archive && <AddBar fields={[{ key: 'title', ph: '行きたい場所' }]} accent={C.coral} onAdd={(it) => add('places', null, it, { date: '', time: '', location: '' })} />}
-            {data.places.length === 0
-              ? <Empty text={archive ? 'この帰国では記録がありません。' : '行きたい場所を追加。\n日付を入れるとカレンダーに登録できます。'} />
-              : data.places.map((it) => (
-                <ItemRow key={it.id} item={it} accent={C.coral} showDate showTime showLocation showCalendar
-                  onToggle={() => toggle('places', null, it.id)}
-                  onUpdate={(p) => update('places', null, it.id, p)}
-                  onDelete={() => remove('places', null, it.id)} />
-              ))}
-          </>
-        )}
-
-        {active === 'food' && (
-          <>
-            {!archive && <AddBar fields={[{ key: 'title', ph: '食べたいもの' }]} accent={C.mint} onAdd={(it) => add('food', null, it, { location: '', date: '', time: '' })} />}
-            {data.food.length === 0
-              ? <Empty text={archive ? 'この帰国では記録がありません。' : '食べたいものを追加。\n予約した日を入れるとカレンダーに登録できます。'} />
-              : data.food.map((it) => (
-                <ItemRow key={it.id} item={it} accent={C.mint} showLocation showDate showTime showCalendar
-                  onToggle={() => toggle('food', null, it.id)}
-                  onUpdate={(p) => update('food', null, it.id, p)}
-                  onDelete={() => remove('food', null, it.id)} />
-              ))}
-          </>
-        )}
-
-        {active === 'todo' && (
-          <>
-            {!archive && <AddBar fields={[{ key: 'title', ph: 'やること' }]} accent={C.lav} onAdd={(it) => add('todo', null, it, { date: '', time: '', location: '' })} />}
-            {data.todo.length === 0
-              ? <Empty text={archive ? 'この帰国では記録がありません。' : 'やることを追加。\n（健康診断、通販のキャンセル、役所手続き、銀行など）\n日付を入れるとカレンダーと予定一覧にも載ります。'} />
-              : data.todo.map((it) => (
-                <ItemRow key={it.id} item={it} accent={C.lav} showDate showTime showLocation showCalendar
-                  onToggle={() => toggle('todo', null, it.id)}
-                  onUpdate={(p) => update('todo', null, it.id, p)}
-                  onDelete={() => remove('todo', null, it.id)} />
-              ))}
-          </>
-        )}
-
-        {active === 'timeline' && (
-          <>
-            {events.length > 0 && !archive && (
-              <>
-                <button
-                  onClick={() => downloadICS(events)}
-                  style={{
-                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    border: 'none', cursor: 'pointer', borderRadius: 99,
-                    background: 'linear-gradient(120deg, #5FAEDF, #F0876C)', color: '#fff',
-                    fontFamily: BODY, fontSize: 13.5, fontWeight: 700,
-                    padding: '13px 0', marginBottom: 7, boxShadow: '0 4px 14px rgba(240,135,108,.25)',
-                  }}
-                >
-                  <Download size={16} /> 全{events.length}件をカレンダー用ファイルで書き出し
-                </button>
-                <div style={{ fontFamily: BODY, fontSize: 11, color: C.sub, textAlign: 'center', marginBottom: 15, lineHeight: 1.6 }}>
-                  .icsファイルをGoogleカレンダーにインポートすると全件まとめて登録されます
-                </div>
-              </>
-            )}
-            {events.length === 0
-              ? <Empty text={archive ? 'この帰国では日付つきの記録がありません。' : '日付の入った予定がここに並びます。\n「会う人」「場所」「食べる」「ToDo」で日付を設定してください。'} />
-              : eventDates.map((d) => {
-                const diff = daysFromToday(d);
-                const rel = archive ? '' : diff === 0 ? '今日' : diff === 1 ? '明日' : diff > 1 ? `あと${diff}日` : '終了';
-                return (
-                  <div key={d} style={{ marginBottom: 19, opacity: !archive && diff < 0 ? 0.55 : 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8, padding: '0 2px' }}>
-                      <span style={{ fontFamily: DISPLAY, fontSize: 16, fontWeight: 700, color: C.ink }}>{fmtJP(d)}</span>
-                      {rel && (
-                        <span style={{
-                          fontFamily: BODY, fontSize: 10.5, fontWeight: 700,
-                          color: diff === 0 ? '#fff' : C.sub,
-                          background: diff === 0 ? C.coral : 'transparent',
-                          padding: diff === 0 ? '2px 9px' : 0, borderRadius: 99,
-                        }}>{rel}</span>
-                      )}
-                    </div>
-                    {events.filter((e) => e.date === d).map((e) => {
-                      const m = SOURCE_META[e.sec];
-                      return (
-                        <div key={e.sec + e.id} style={{
-                          display: 'flex', alignItems: 'center', gap: 11,
-                          background: C.card, border: `1px solid ${C.line}`, borderLeft: `4px solid ${m.color}`,
-                          borderRadius: 13, padding: '11px 12px', marginBottom: 7, boxShadow: cardShadow,
-                        }}>
-                          <div style={{ flexShrink: 0, width: 46, textAlign: 'center', fontFamily: BODY, fontSize: 12.5, fontWeight: 700, color: e.time ? C.ink : C.sub }}>
-                            {e.time || '終日'}
-                          </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontFamily: BODY, fontSize: 14, color: e.done ? C.sub : C.ink, textDecoration: e.done ? 'line-through' : 'none' }}>
-                              <span style={{
-                                display: 'inline-block', fontSize: 10, fontWeight: 700, color: m.color, background: m.soft,
-                                padding: '1px 7px', borderRadius: 99, marginRight: 6, verticalAlign: 'middle',
-                              }}>{m.label}</span>
-                              {e.title}
-                            </div>
-                            {e.location && <div style={{ fontFamily: BODY, fontSize: 11.5, color: C.sub, marginTop: 2 }}>{e.location}</div>}
-                          </div>
-                          {!archive && (
-                            <a
-                              href={gcalLink(e)} target="_blank" rel="noopener noreferrer" aria-label="カレンダーに追加"
-                              style={{
-                                flexShrink: 0, width: 34, height: 34, borderRadius: 99, textDecoration: 'none',
-                                background: m.soft, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              }}
-                            >
-                              <CalendarPlus size={16} color={m.color} />
-                            </a>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-          </>
-        )}
-      </main>
-
-      {/* ---- bottom nav ---- */}
-      <nav style={{
-        position: 'absolute', left: 0, right: 0, bottom: 0, display: 'flex',
-        background: 'rgba(255,255,255,0.96)', borderTop: `1px solid ${C.line}`,
-        paddingBottom: 'env(safe-area-inset-bottom)', boxShadow: '0 -4px 16px rgba(90,140,175,.06)',
-      }}>
-        {SECTIONS.map((s) => {
-          const on = active === s.key;
-          const Icon = s.icon;
-          const cnt = navCount(s.key);
-          return (
-            <button
-              key={s.key}
-              onClick={() => setActive(s.key)}
-              style={{
-                flex: 1, border: 'none', background: 'transparent', cursor: 'pointer',
-                padding: '8px 1px 11px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, position: 'relative', minWidth: 0,
-              }}
-            >
-              <div style={{
-                position: 'relative', width: 33, height: 26, borderRadius: 99,
-                background: on ? softOf(s.accent) : 'transparent',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background .15s',
-              }}>
-                <Icon size={19} color={on ? s.accent : '#A9BCC9'} strokeWidth={on ? 2.4 : 2} />
-                {cnt > 0 && (
-                  <span style={{
-                    position: 'absolute', top: -5, right: -7, minWidth: 15, height: 15, padding: '0 3px',
-                    borderRadius: 99, background: s.accent, color: '#fff', fontSize: 9.5, fontWeight: 700,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: BODY,
-                    border: '1.5px solid #fff',
-                  }}>{cnt}</span>
-                )}
-              </div>
-              <span style={{ fontFamily: BODY, fontSize: 9.5, fontWeight: on ? 700 : 500, color: on ? s.accent : '#A9BCC9', whiteSpace: 'nowrap' }}>{s.label}</span>
-            </button>
-          );
-        })}
-      </nav>
-    </div>
-  );
+  // restore scroll
+  var main2=document.getElementById('main');if(main2)main2.scrollTop=scrollTop;
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+render();
+
 </script>
 </body>
 </html>
